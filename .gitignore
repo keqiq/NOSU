@@ -1,0 +1,11 @@
+__pycache__/
+/Data/
+/Model/key_dataset/
+/Model/pos_dataset/
+/old/
+/osu/
+OSUController.py
+OSUListener.py
+*.pth
+
+Model/OSUModelUtils.py
