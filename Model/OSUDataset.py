@@ -17,24 +17,24 @@ class OsuDataset(Dataset):
         target_seq = self.target_sequences[idx]
         return input_seq, target_seq
     
-# def collate_fn(batch):
-#     inputs, targets = zip(*batch)
+def pos_collate_fn(batch):
+    inputs, targets = zip(*batch)
     
-#     # Padding
-#     input_lengths = torch.tensor([len(seq) for seq in inputs])
-#     padded_inputs = pad_sequence(inputs, batch_first=True, padding_value=0)
+    # Padding
+    input_lengths = torch.tensor([len(seq) for seq in inputs])
+    padded_inputs = pad_sequence(inputs, batch_first=True, padding_value=0)
     
-#     # target_lengths = torch.tensor([len(seq) for seq in targets])
-#     # padded_targets = pad_sequence(targets, batch_first=True, padding_value=0)
+    # target_lengths = torch.tensor([len(seq) for seq in targets])
+    # padded_targets = pad_sequence(targets, batch_first=True, padding_value=0)
     
-#     targets = torch.stack(targets)
+    targets = torch.stack(targets)
     
-#     # Packing
-#     packed_inputs = pack_padded_sequence(padded_inputs, input_lengths, batch_first=True, enforce_sorted=False)
+    # Packing
+    packed_inputs = pack_padded_sequence(padded_inputs, input_lengths, batch_first=True, enforce_sorted=False)
     
-#     return packed_inputs, targets, input_lengths
+    return packed_inputs, targets, input_lengths
 
-def collate_fn(batch):
+def key_collate_fn(batch):
     inputs, targets = zip(*batch)
     
     # Padding

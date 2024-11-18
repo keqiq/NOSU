@@ -61,26 +61,26 @@ class OSUModelPos(nn.Module):
         pos_decoder_input = targets[:, 0, :].unsqueeze(1)
         
         # # Decode one step at a time
-        pos_outputs = []
-        for t in range(1, targets.size(1)):
+        # pos_outputs = []
+        # for t in range(1, targets.size(1)):
             
-            pos_pred, pos_hidden = self.pos_decoder(pos_decoder_input, pos_hidden)
+        #     pos_pred, pos_hidden = self.pos_decoder(pos_decoder_input, pos_hidden)
             
-            # Teacher forcing
-            if torch.rand(1).item() < teacher_forcing_ratio:
-                pos_decoder_input = targets[:, t, :].unsqueeze(1)
-            else:
-                pos_decoder_input = pos_pred
+        #     # Teacher forcing
+        #     if torch.rand(1).item() < teacher_forcing_ratio:
+        #         pos_decoder_input = targets[:, t, :].unsqueeze(1)
+        #     else:
+        #         pos_decoder_input = pos_pred
             
-            pos_outputs.append(pos_pred)
+        #     pos_outputs.append(pos_pred)
                 
-        pos_outputs = torch.cat(pos_outputs, dim=1)
+        # pos_outputs = torch.cat(pos_outputs, dim=1)
         
-        return pos_outputs
+        # return pos_outputs
         
-        # pos_output, pos_hidden = self.pos_decoder(pos_decoder_input, pos_hidden)
+        pos_output, pos_hidden = self.pos_decoder(pos_decoder_input, pos_hidden)
         
-        # return pos_output
+        return pos_output
     
 class KeypressEncoder(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers):
