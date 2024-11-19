@@ -298,6 +298,7 @@ def get_pos_sequences(data, N, window):
     
     input_sequences = []
     target_sequences = []
+    target_objects = []
     active_time_steps = []
     
     start_idx_X = 0
@@ -305,7 +306,7 @@ def get_pos_sequences(data, N, window):
 
     len_X = len(df_X)
 
-    for t in time_steps:
+    for t in time_steps[0:]:
     
         # Getting future objects within time window (t --- (t + window))
         while start_idx_X < len_X and times_X[start_idx_X] < t:
@@ -339,16 +340,41 @@ def get_pos_sequences(data, N, window):
                 active_times = np.concatenate([[prev_time], active_times])
                 
             active_time_diff = (active_times - t) / window
-            active_vector = np.hstack((active_objs, active_time_diff.reshape(-1, 1))).astype(np.float32)
+            x_diff = np.diff(active_objs[:, 0], append=active_objs[-1, 0])
+            y_diff = np.diff(active_objs[:, 1], append=active_objs[-1, 1])
+            
+            active_vector = np.hstack((
+                active_objs, 
+                active_time_diff.reshape(-1, 1), 
+                x_diff.reshape(-1, 1), 
+                y_diff.reshape(-1, 1)
+                )).astype(np.float32)
 
             # Get targets for sequence on training data
+            # Player targets is the human cursor position data
+            # Object targets is the immediate object at time t (perhaps useful for hybrid loss)
             if df_y is not None:
                 while start_idx_y < len_y and times_y[start_idx_y] < t:
                     start_idx_y += 1
-                    
-                target_vector = targets_y[start_idx_y:start_idx_y + 2].astype(np.float32)
+                
+                player_target_vector = targets_y[start_idx_y:start_idx_y + 2].astype(np.float32)
 
-                target_sequences.append(torch.tensor(target_vector, dtype=torch.float32))
+                target_sequences.append(torch.tensor(np.round(player_target_vector, decimals=4), dtype=torch.float32))
+                
+                # The immediate object is either the previous object due to 60hz sampling or the first future object
+                immediate_idx = 0
+                immediate_times = active_times - t
+                if len(immediate_times) > 1:
+                    if np.abs(immediate_times[0]) > immediate_times[1]:
+                        immediate_idx = 1
+                    
+                immediate_object = active_vector[immediate_idx, [0, 1, 7]]
+                
+                # For hybrid loss, only hit circles and slider starts should be considered
+                weight = np.max(active_vector[immediate_idx, [2, 3]])
+                immediate_object = np.hstack((immediate_object, weight))
+                
+                target_objects.append(torch.tensor(np.round(immediate_object, decimals=4), dtype=torch.float32))
                 
                 # Embedding distance to hitobject relative to previous cursor position
                 prev_pos = targets_y[start_idx_y]
@@ -360,11 +386,12 @@ def get_pos_sequences(data, N, window):
             else:
                 active_time_steps.append(t)
 
-            input_sequences.append(torch.tensor(active_vector, dtype=torch.float32))
+            input_sequences.append(torch.tensor(np.round(active_vector, decimals=4), dtype=torch.float32))
 
     if df_y is not None:
         torch.save(input_sequences, f'{path}/pos_input_seq.pt')
         torch.save(target_sequences, f'{path}/pos_target_seq.pt')
+        torch.save(target_objects, f'{path}/pos_target_obj.pt')
     else:
         return input_sequences, active_time_steps
     
@@ -378,6 +405,10 @@ def get_sequences(data, N, window, type):
 def read_sequences(path, type):
     input_seq = torch.load(f'{path}/{type}_input_seq.pt')
     target_seq = torch.load(f'{path}/{type}_target_seq.pt')
+    
+    if type == 'pos':
+        target_obj = torch.load(f'{path}/pos_target_obj.pt')
+        return [input_seq, target_seq, target_obj]
     
     return [input_seq, target_seq]
 
@@ -415,6 +446,7 @@ def get_set_sequences(set_path, type):
     set_folders = [os.path.join(set_path, folder) for folder in os.listdir(set_path) if os.path.isdir(os.path.join(set_path, folder))]
     input_sequences = []
     target_sequences = []
+    target_objects = []
     with ThreadPoolExecutor() as executor:
         futures = []
         for folder in set_folders:
@@ -424,5 +456,6 @@ def get_set_sequences(set_path, type):
             sequences = future.result()
             input_sequences.append(sequences[0])
             target_sequences.append(sequences[1])
+            target_objects.append(sequences[2])
             
-    return input_sequences, target_sequences
+    return input_sequences, target_sequences, target_objects

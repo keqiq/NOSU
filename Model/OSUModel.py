@@ -33,15 +33,15 @@ class PositionDecoder(nn.Module):
         # Regression position output (x, y) with hidden state from encoder
         self.pos = nn.Linear(hidden_size, 2)
         
-        self.dropout = nn.Dropout(p=0.5)
+        # self.dropout = nn.Dropout(p=0.2)
         
     def forward(self, x, hidden):
          # Forward pass through the LSTM
         output, hidden = self.lstm(x, hidden)
         
         # position regression output
+        # output = self.dropout(output)
         pos_output = self.pos(output)
-        # pos_output = self.dropout(output)
         
         return pos_output, hidden
     
@@ -52,31 +52,13 @@ class OSUModelPos(nn.Module):
         self.pos_decoder = pos_decoder
         self.device = device
     
-    def forward(self, input, targets, teacher_forcing_ratio):
+    def forward(self, input, targets, teacher_forcing_ratio = 0):
         
         # Encode the source sequence
         pos_hidden = self.pos_encoder(input)
         
         # Initial input for position decoder (batch_size, 1, 2)
         pos_decoder_input = targets[:, 0, :].unsqueeze(1)
-        
-        # # Decode one step at a time
-        # pos_outputs = []
-        # for t in range(1, targets.size(1)):
-            
-        #     pos_pred, pos_hidden = self.pos_decoder(pos_decoder_input, pos_hidden)
-            
-        #     # Teacher forcing
-        #     if torch.rand(1).item() < teacher_forcing_ratio:
-        #         pos_decoder_input = targets[:, t, :].unsqueeze(1)
-        #     else:
-        #         pos_decoder_input = pos_pred
-            
-        #     pos_outputs.append(pos_pred)
-                
-        # pos_outputs = torch.cat(pos_outputs, dim=1)
-        
-        # return pos_outputs
         
         pos_output, pos_hidden = self.pos_decoder(pos_decoder_input, pos_hidden)
         
