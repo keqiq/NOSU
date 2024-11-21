@@ -305,6 +305,8 @@ def get_pos_sequences(data, N, window):
     end_idx_X = 0
 
     len_X = len(df_X)
+    
+    type_weight = np.array([10, 10, 1])
 
     for t in time_steps[0:]:
     
@@ -316,12 +318,12 @@ def get_pos_sequences(data, N, window):
             end_idx_X += 1
     
         num_active = end_idx_X - start_idx_X
-        # Getting the previous object if its within window/2 of current time
+        # Getting the previous object if its within some threshold of current time
         # I think this prevents the model from sometimes moving away from the nearest object too soon
         prev_obj = None
         if start_idx_X > 0:
             prev_time = times_X[start_idx_X - 1]
-            if (t - prev_time) < 150:
+            if (t - prev_time) <= 20:
                 num_active += 1
                 prev_obj = feats_X[start_idx_X - 1]
                 
@@ -363,15 +365,18 @@ def get_pos_sequences(data, N, window):
                 
                 # The immediate object is either the previous object due to 60hz sampling or the first future object
                 immediate_idx = 0
-                immediate_times = active_times - t
-                if len(immediate_times) > 1:
-                    if np.abs(immediate_times[0]) > immediate_times[1]:
-                        immediate_idx = 1
+                # immediate_times = active_times - t
+                # if len(immediate_times) > 1:
+                #     if np.abs(immediate_times[0]) > immediate_times[1]:
+                #         immediate_idx = 1
                     
                 immediate_object = active_vector[immediate_idx, [0, 1, 7]]
                 
-                # For hybrid loss, only hit circles and slider starts should be considered
-                weight = np.max(active_vector[immediate_idx, [2, 3]])
+                # For hybrid loss, only hit circles and slider starts and slider ticks should be considered
+                # Column 2 is hit circle, 3 is slider start and 4 is slider tick
+                # More weight is applied on hit circles and slider starts
+                valid_types = active_vector[immediate_idx, [2, 3, 4]]
+                weight = np.sum(type_weight * valid_types)
                 immediate_object = np.hstack((immediate_object, weight))
                 
                 target_objects.append(torch.tensor(np.round(immediate_object, decimals=4), dtype=torch.float32))

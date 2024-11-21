@@ -54,8 +54,7 @@ class Slider:
         for i in range(1, self.repeats):
             copy_tick = np.copy(self.ticks)
             slide_duration = self.ticks[-1][2] - self.time
-            
-            # WORKING???!?!?! 
+
             if i % 2 == 1:
                 copy_tick[:, :2] = copy_tick[::-1,:2]
                 
