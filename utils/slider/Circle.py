@@ -10,11 +10,11 @@ class Circle(Slider):
         try:
             self.circle = self.__calculate_circle()
             super()._calculate_ticks()
+            if self.repeats > 1: super()._calculate_repeats()
         except ValueError:
             linear = Linear(data, control, ms_per_beat, velocity)
             self.ticks = linear.get_ticks()
         
-        if self.repeats > 1: super()._calculate_repeats()
     
     def __calculate_circle(self):
         points = self.control
@@ -60,33 +60,63 @@ class Circle(Slider):
 
         return center_x, center_y, radius
     
+    # def _tick_interp(self, t):
+    #     cx, cy, cr = self.circle
+    #     x1, y1 = self.control[0]
+    #     x2, y2 = self.control[2]
+    #     x3, y3 = self.control[1]
+
+    #     # Calculate the angles of point1, point2, and point3 relative to the center
+    #     angle1 = math.atan2(y1 - cy, x1 - cx)
+    #     angle2 = math.atan2(y2 - cy, x2 - cx)
+    #     angle3 = math.atan2(y3 - cy, x3 - cx)
+
+    #     # Ensure that the angles are within the correct range
+    #     if angle2 < angle1:
+    #         angle2 += 2 * math.pi
+    #     if angle3 < angle1:
+    #         angle3 += 2 * math.pi
+
+    #     # Check if angle3 lies between angle1 and angle2 (shorter arc direction)
+    #     if angle1 <= angle3 <= angle2:
+    #         # Interpolate between angle1 and angle2
+    #         interpolated_angle = (1 - t) * angle1 + t * angle2
+    #     else:
+    #         # If angle3 is not between angle1 and angle2, take the longer arc
+    #         if angle3 > angle2:
+    #             angle3 -= 2 * math.pi  # Normalize the angle to the same range
+    #             # Interpolate between angle1 and angle3
+    #         interpolated_angle = (1 - 2 * t) * angle1 + 2 * t * angle3
+
+    #     # Calculate the position of the interpolated point on the arc
+    #     x = cx + cr * math.cos(interpolated_angle)
+    #     y = cy + cr * math.sin(interpolated_angle)
+
+    #     return x, y
+    
     def _tick_interp(self, t):
         cx, cy, cr = self.circle
         x1, y1 = self.control[0]
-        x2, y2 = self.control[2]
-        x3, y3 = self.control[1]
+        x2, y2 = self.control[1]
+        x3, y3 = self.control[2]
 
         # Calculate the angles of point1, point2, and point3 relative to the center
-        angle1 = math.atan2(y1 - cy, x1 - cx)
-        angle2 = math.atan2(y2 - cy, x2 - cx)
-        angle3 = math.atan2(y3 - cy, x3 - cx)
+        angle1 = math.atan2(y1 - cy, x1 - cx) % (2 * math.pi)
+        angle2 = math.atan2(y2 - cy, x2 - cx) % (2 * math.pi)
+        angle3 = math.atan2(y3 - cy, x3 - cx) % (2 * math.pi)
 
-        # Ensure that the angles are within the correct range
-        if angle2 < angle1:
-            angle2 += 2 * math.pi
-        if angle3 < angle1:
-            angle3 += 2 * math.pi
+        # Compute the angular distances
+        angle13_ccw = (angle3 - angle1) % (2 * math.pi)  # Counter-clockwise from angle1 to angle3
+        angle13_cw = (angle1 - angle3) % (2 * math.pi)   # Clockwise from angle1 to angle3
 
-        # Check if angle3 lies between angle1 and angle2 (shorter arc direction)
-        if angle1 <= angle3 <= angle2:
-            # Interpolate between angle1 and angle2
-            interpolated_angle = (1 - t) * angle1 + t * angle2
+        # Check if angle2 lies on the counter-clockwise arc from angle1 to angle3
+        angle12_ccw = (angle2 - angle1) % (2 * math.pi)
+        if angle12_ccw <= angle13_ccw:
+            # Interpolate counter-clockwise
+            interpolated_angle = (angle1 + t * angle13_ccw) % (2 * math.pi)
         else:
-            # If angle3 is not between angle1 and angle2, take the longer arc
-            if angle3 > angle2:
-                angle3 -= 2 * math.pi  # Normalize the angle to the same range
-                # Interpolate between angle1 and angle3
-            interpolated_angle = (1 - 2 * t) * angle1 + 2 * t * angle3
+            # Interpolate clockwise
+            interpolated_angle = (angle1 - t * angle13_cw) % (2 * math.pi)
 
         # Calculate the position of the interpolated point on the arc
         x = cx + cr * math.cos(interpolated_angle)

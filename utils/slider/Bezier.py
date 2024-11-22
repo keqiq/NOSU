@@ -1,4 +1,5 @@
 from .Slider import Slider
+import numpy as np
 class Bezier(Slider):
     
     def __init__(self, data, control, ms_per_beat, velocity):
@@ -94,12 +95,20 @@ class Bezier(Slider):
             section_duration = (section_length / total_length) * self.duration_per_slide
             section_num_ticks = round(section_duration / (1000 / 60))
             
-            for j in range(1, section_num_ticks + 1):
-                t = j / section_num_ticks
+            # Weird sliders with too many control points and or tiny section lengths may need this check
+            # In this case, just append a tick at the middle of the control points
+            if section_num_ticks < 1:
+                t = 0.5
                 tick_time = int(t * section_duration + total_duration + self.time)
                 tick_pos = self.__bezier_interp(section, t)
-                
                 results.append([round(tick_pos[0]), round(tick_pos[1]), tick_time, 7, -1])
+            else:
+                for j in range(1, section_num_ticks + 1):
+                    t = j / section_num_ticks
+                    tick_time = int(t * section_duration + total_duration + self.time)
+                    tick_pos = self.__bezier_interp(section, t)
+                    
+                    results.append([round(tick_pos[0]), round(tick_pos[1]), tick_time, 7, -1])
             
             total_duration += section_duration
         super()._create_ticks_matrix(results)

@@ -323,8 +323,8 @@ def get_pos_sequences(data, N, window):
         prev_obj = None
         if start_idx_X > 0:
             prev_time = times_X[start_idx_X - 1]
-            if (t - prev_time) <= 20:
-                num_active += 1
+            if (t - prev_time) < 32:
+                # num_active += 1
                 prev_obj = feats_X[start_idx_X - 1]
                 
         if num_active > 0:
@@ -336,6 +336,16 @@ def get_pos_sequences(data, N, window):
             else:
                 active_objs = feats_X[start_idx_X:end_idx_X]
                 active_times = times_X[start_idx_X:end_idx_X]
+            
+            # The model performs worse when there are few objects in a sequence
+            # This will take the first object and pad the sequence to length N
+            # Unsure if this is needed during training, but it improves inference performance
+            if num_active < N:
+                num_to_pad = N - num_active
+                obj_padding = np.tile(active_objs[0], (num_to_pad, 1))
+                active_objs = np.concatenate([active_objs[:1], obj_padding, active_objs[1:]], axis=0)
+                time_padding = np.full(num_to_pad, active_times[0])
+                active_times = np.concatenate([active_times[:1], time_padding, active_times[1:]], axis=0)
                 
             if prev_obj is not None:
                 active_objs = np.concatenate([[prev_obj], active_objs])
