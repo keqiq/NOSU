@@ -1,8 +1,8 @@
 from osrparse import Replay
 
-from .HitObjects import HitObjects
-from .MapParams import MapParams
-from .TimingPoints import TimingPoints
+from .map.HitObjects import HitObjects
+from .map.MapParams import MapParams
+from .map.TimingPoints import TimingPoints
 
 import numpy as np
 

@@ -5,7 +5,12 @@ __pycache__/
 /old/
 /osu/
 OSUController.py
+OSUControllerV2.py
 OSUListener.py
+OSUListenerV2.py
 *.pth
-
+*.json
+OSUModelUtils.py
 Model/OSUModelUtils.py
+Model/debug.ipynb
+/tosu-windows-v4.0.1

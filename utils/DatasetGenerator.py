@@ -363,8 +363,8 @@ def get_pos_sequences(data, N, window):
                 )).astype(np.float32)
 
             # Get targets for sequence on training data
-            # Player targets is the human cursor position data
-            # Object targets is the immediate object at time t (perhaps useful for hybrid loss)
+            # Player targets is the human cursor position data from replay
+            # Object targets is the immediate (smallest time value) object at time t used in hybrid loss
             if df_y is not None:
                 while start_idx_y < len_y and times_y[start_idx_y] < t:
                     start_idx_y += 1

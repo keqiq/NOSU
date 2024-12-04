@@ -65,7 +65,7 @@ class HitObjects():
         # I think spinners alway appear in the center of screen so inverted it would be the same
         self.spinners.append(obj)
         duration = obj[4] - obj[2]
-        interval = 1000.0/60.0
+        interval = 1000.0/30.0
         len = math.ceil(duration / interval)
         
         ticks = [[obj[0], obj[1], int(obj[2] + interval * i), 13, -1] for i in range(len)]
