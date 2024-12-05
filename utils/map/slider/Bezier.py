@@ -23,7 +23,7 @@ class Bezier(Slider):
             c *= (n - i) / (i + 1)
 
         return c
-    
+    # https://osu.ppy.sh/community/forums/topics/606522?n=2
     def __bezier_interp(self, control, t):
         bx, by, n = 0, 0, len(control) - 1
 

@@ -1,6 +1,6 @@
 from .slider.Linear import Linear
 from .slider.Circle import Circle
-from .slider.Bezier import Bezier
+from .slider.BezierV2 import BezierV2
 import numpy as np
 import math
 
@@ -89,7 +89,7 @@ class HitObjects():
         slider_types = {
             'L' : Linear,
             'P' : Circle,
-            'B' : Bezier
+            'B' : BezierV2
         }
         
         slider_class = slider_types[slider_type]
