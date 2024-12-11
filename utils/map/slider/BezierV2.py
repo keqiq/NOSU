@@ -1,10 +1,12 @@
 from .Slider import Slider
+# Bezier slider subclass similar to how bezier sliders are represented in game
+# The bezier segment(s) are approximated with polyline(s)
 class BezierV2(Slider):
     def __init__(self, data, control, ms_per_beat, velocity):
         super().__init__(data, control, ms_per_beat, velocity)
         self.segments = self._get_bezier_segments()
         self.flattened_path = self._flatten_all_segments()
-        self.cumulative_lengths, self.total_length = self.calculate_cumulative_lengths()
+        self.cumulative_lengths, self.total_length = self._calculate_cumulative_lengths()
         
         self.__calculate_ticks()
         if self.repeats > 1: super()._calculate_repeats()
@@ -103,7 +105,7 @@ class BezierV2(Slider):
         return flattened_path
     
     # Calculates cumulative length after each segment and total length of all segments
-    def calculate_cumulative_lengths(self):
+    def _calculate_cumulative_lengths(self):
         lengths = [0]
         total_length = 0
 
@@ -116,7 +118,7 @@ class BezierV2(Slider):
 
         return lengths, total_length
     
-    def calculate_tick_distance(self):
+    def _calculate_tick_distance(self):
         tick_interval_ms = 1000 / 60  # 16.6667 ms per tick for 60fps
         velocity_per_ms = self.velocity / self.ms_per_beat  # osu pixels per millisecond
 
@@ -138,7 +140,7 @@ class BezierV2(Slider):
         return max(0, left - 1)
     
     def __calculate_ticks(self):
-        tick_distance = self.calculate_tick_distance()
+        tick_distance = self._calculate_tick_distance()
         results = []
         next_tick_distance = tick_distance
         total_duration = self.duration_per_slide
@@ -167,7 +169,7 @@ class BezierV2(Slider):
             tick_time = int(slider_start_time + (next_tick_distance / self.total_length) * total_duration)
 
             results.append([round(tick_x), round(tick_y), tick_time, 7, -1])
-
             next_tick_distance += tick_distance
+            self._update_max_distance([tick_x, tick_y])
 
         super()._create_ticks_matrix(results)

@@ -57,7 +57,7 @@ class DataParser:
             _, feats = self._parse_map(list(Path(folder_path).glob('*.osu'))[0], hr)
         
         x = pd.DataFrame(feats, columns=[
-            'x', 'y', 'time', 'type', 'end_time'
+            'x', 'y', 'time', 'type', 'end_time', 'buzz'
         ])
         
         x['delta_time'] = (x['time'].diff()).fillna(0)
@@ -136,26 +136,42 @@ class DataParser:
             
         set = []
         
+        failures = 0
         with ProcessPoolExecutor() as executor:
             futures = []
             for folder in set_folders:
                 futures.append(executor.submit(self._get_Xy, folder))
             
             for future in tqdm(as_completed(futures), total=len(futures)):
-                set.append(future.result())
-                
+                # Only append successful results
+                try:
+                    result = future.result()
+                    set.append(result) 
+                except Exception as e:
+                    failures += 1 
+                    print(f"Error occurred for future: {e}")
+
+        print(f"{failures} failures out of {len(set_folders)} total tasks.")
+        
         return set
     
     # Function to generate sequences given a set containing X, y and path
     # There is no return as the resulting data is written to disk to avoid pickling between processes
     def _generate_set_sequences(self, sets):
         with ProcessPoolExecutor() as executor:
+            failures = 0
             futures = []
             for set in sets:
                 futures.append(executor.submit(self.generate_sequences, set))
                 
             for future in tqdm(as_completed(futures), total=len(futures)):
-                pass
+                try:
+                    future.result()
+                except Exception as e:
+                    failures += 1
+                    print(f"Error occurred for a task: {e}")
+
+        print(f"{failures} failures out of {len(futures)} total tasks.")
     
     # Function to read data files from disk from generate_set_sequences
     def _get_set_sequences(self, set_path):
@@ -206,9 +222,8 @@ class DataParser:
     
     # Generates X for one map (inference)
     def generate_one(self, path):
-        df_y, hr = self.get_y(path)
-        df_X = self.get_X(path, hr)
-        input_seq, times, end_times = self.generate_sequences([df_X, df_y, path])
+        df_X = self.get_X(path, False)
+        input_seq, times, end_times = self.generate_sequences([df_X, None, path])
         return input_seq, times, end_times
         
     # Function to format results from read_sequences

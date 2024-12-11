@@ -1,5 +1,5 @@
 from .slider.Linear import Linear
-from .slider.Circle import Circle
+from .slider.CircleV2 import CircleV2
 from .slider.BezierV2 import BezierV2
 import numpy as np
 import math
@@ -33,10 +33,11 @@ class HitObjects():
             int(data[1]),   # y
             int(data[2]),   # time
             int(data[3]),   # type
-            None            # endtime
+            None,           # endtime
+            0               # buzz slider indicator
         ]
         
-        # If hit cirlce
+        # If hit circle
         if self.__check_bit_index(obj[3], 0):
             obj[3] = 1
             obj[4] = -1
@@ -68,7 +69,7 @@ class HitObjects():
         interval = 1000.0/30.0
         len = math.ceil(duration / interval)
         
-        ticks = [[obj[0], obj[1], int(obj[2] + interval * i), 13, -1] for i in range(len)]
+        ticks = [[obj[0], obj[1], int(obj[2] + interval * i), 13, -1, obj[5]] for i in range(len)]
         ticks[0][3] = 12
         ticks[0][4] = int(obj[4])
         self.all_hit_objects.extend(ticks)
@@ -88,7 +89,7 @@ class HitObjects():
         
         slider_types = {
             'L' : Linear,
-            'P' : Circle,
+            'P' : CircleV2,
             'B' : BezierV2
         }
         
@@ -102,11 +103,13 @@ class HitObjects():
         self.all_hit_objects.extend(ticks)
     
     def get_data(self):
+        # hit_objects is used by the visualizer
         hit_objects = {
             'hit_circles': np.array(self.hit_circles),
             'spinners': np.array(self.spinners),
             'sliders': np.array(self.sliders, dtype=object)
         }
+        # data is used during sequence generation
         data = np.array(self.all_hit_objects).astype(float)
         return hit_objects, data
     

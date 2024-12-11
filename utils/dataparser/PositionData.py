@@ -6,9 +6,8 @@ import torch
 # PositionData transforms .osu map files and .osr replay files into tensors used by position model
 class PositionData(DataParser):
     
-    def __init__(self, set_paths, c_size, t_size, type_weight, regen=False):
+    def __init__(self, set_paths, c_size, t_size, regen=False):
         super().__init__(set_paths, c_size, t_size, regen)
-        self.type_weight = type_weight
         self.subclass = 'pos'
     
     # Converts .osr replay files into numpy 2d array
@@ -61,7 +60,7 @@ class PositionData(DataParser):
         # Extracting relevant columns from df_X for position sequence inputs
         times_X = df_X['time'].values
         feats_X = df_X[['x_norm', 'y_norm', 'type_1.0', 'type_6.0', 
-                              'type_7.0', 'type_12.0', 'type_13.0']].values
+                              'type_7.0', 'type_12.0', 'type_13.0', 'buzz']].values
         
         # Extracting relevant columns from df_y for position sequence targets
         # time_steps contains the time at which there is a sample for cursor movement 
@@ -112,7 +111,7 @@ class PositionData(DataParser):
             prev_obj = None
             if start_idx > 0:
                 prev_time = times_X[start_idx - 1]
-                if (t - prev_time) < 32:
+                if (t - prev_time) < 16:
                     prev_obj = feats_X[start_idx - 1]
                     
             if num_active > 0:
@@ -127,22 +126,25 @@ class PositionData(DataParser):
                     active_objs = feats_X[start_idx : end_idx]
                     active_times = times_X[start_idx : end_idx]
                     
-                # The model performs worse when there are few objects in the input sequence
-                # Could be due to most maps having relatively few portions where only few objects are present
-                # and thus small sequences are dilute in the training examples
-                # This check will take the first object and pad the sequence to c_size
-                if num_active < self.c_size:
-                    num_to_pad = self.c_size - num_active
-                    obj_padding = np.tile(active_objs[0], (num_to_pad, 1))
-                    active_objs = np.concatenate([active_objs[:1], obj_padding, active_objs[1:]], axis=0)
-                    time_padding = np.full(num_to_pad, active_times[0])
-                    active_times = np.concatenate([active_times[:1], time_padding, active_times[1:]], axis=0)
-                    
                 # Adding the previous object into the input sequence
                 if prev_obj is not None:
                     active_objs = np.concatenate([[prev_obj], active_objs])
                     active_times = np.concatenate([[prev_time], active_times])
                     
+                # The model performs worse when there are few objects in the input sequence
+                # Could be due to most maps having relatively few portions where only few objects are present
+                # and thus small sequences are dilute in the training examples
+                # This check will take the first object and pad the sequence to c_size + a
+                
+                # Also, duplicate the first object proportional to self.csize to emphasize importance
+                # First object is generally a good indicator for good predictions
+                if num_active < self.c_size + int(self.c_size/2):
+                    num_to_pad = (self.c_size + int(self.c_size/2)) - num_active
+                    obj_padding = np.tile(active_objs[0], (num_to_pad, 1))
+                    active_objs = np.concatenate([active_objs[:1], obj_padding, active_objs[1:]], axis=0)
+                    time_padding = np.full(num_to_pad, active_times[0])
+                    active_times = np.concatenate([active_times[:1], time_padding, active_times[1:]], axis=0)
+
                 # Calculating the time delta between t and object time then normalizing it
                 active_time_delta = (active_times - t) / self.t_size
                 
@@ -173,17 +175,17 @@ class PositionData(DataParser):
                     
                     # Object targets is the immediate (smallest time value) object at time t used in hybrid loss
                     immediate_idx = 0
-                    immediate_obj = active_vector[immediate_idx]
+                    immediate_vector = active_vector[immediate_idx]
                     
-                    # For hybrid loss, only hit circles and slider starts and slider ticks should be considered
-                    # Column 2 is hit circle, 3 is slider start and 4 is slider tick
-                    valid_types = immediate_obj[[2, 3, 4]]
-                    weight = np.sum(self.type_weight * valid_types)
+                    # # For hybrid loss, only hit circles and slider starts and slider ticks should be considered
+                    # # Column 2 is hit circle, 3 is slider start and 4 is slider tick
+                    # valid_types = immediate_obj[[2, 3, 4]]
+                    # weight = np.sum(self.type_weight * valid_types)
                     
-                    immediate_vector = np.hstack((
-                        immediate_obj[[0, 1, 7]], #x, y, time
-                        weight,
-                    ))
+                    # immediate_vector = np.hstack((
+                    #     immediate_obj[[0, 1, 7, 8]], #x, y, buzz, time
+                    #     weight,
+                    # ))
                     target_objects.append(
                         torch.tensor(immediate_vector,
                         dtype=torch.float32        
