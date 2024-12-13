@@ -1,6 +1,7 @@
 from ..map.HitObjects import HitObjects
 from ..map.MapParams import MapParams
 from ..map.TimingPoints import TimingPoints
+from ..map.Stacker import Stacker
 
 import os
 import pandas as pd
@@ -33,13 +34,21 @@ class DataParser:
             content = section.split('\n')
             header = content.pop(0)
             if header == '': header = content.pop(0)
-
+            
+            # Need the stack leniency value for stacker
+            # Since general section is the first section we can just pass this value to MapParams
+            if header == '[General]':
+                stack_leniency = content[5]
+            
+            # Difficulty values
             if header == '[Difficulty]':
-                mp = MapParams(content)
+                mp = MapParams(content, stack_leniency)
 
+            # Timing points
             elif header == '[TimingPoints]':
                 tp = TimingPoints(content)
 
+            # Hitobject parsing
             elif header == '[HitObjects]':
                 if content[-1] == '': content.pop(-1)
                 ho = HitObjects(mp, tp, content, hr)

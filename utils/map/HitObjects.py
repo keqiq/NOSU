@@ -8,51 +8,213 @@ class HitObjects():
     
     def __init__(self, map_params, timing_points, hit_objects, hard_rock):
         
-        self.map_params = map_params
+        self.base_multiplier = map_params.get_slider_multiplier()
+        # self.map_params = map_params
         self.timing_points = timing_points
         self.hard_rock = hard_rock
         
+        # Used by visualizer
         self.hit_circles = []
         self.spinners = []
         self.sliders = []
         
-        self.all_hit_objects = []
+        # Used by model
+        self.result_hit_objects = []
         
-        for hit_object in hit_objects:
-            self.__parse_hit_object(hit_object)
-    
+        self.radius = (54.4 - 4.48 * map_params.get_circle_size())
+        self.preempt = map_params.get_preempt()
+        self.stack_dist = 3
+        self.stack_leniency = map_params.get_stack_leniency()
+        self.stack_counter, self.parsed_hit_objects = self.__parse_and_stack_count(hit_objects)
+        # I'm not sure what the exact offset is but this work fine for now
+        self.stack_offset = 4 * (self.radius / 36.48)
+        
+        # for hit_object in hit_objects:
+        #     self.__parse_hit_object(hit_object)
+        
+        self.__process_hit_objects()
+            
+    # Function to check the type of hit objects based on bit index       
     @staticmethod
     def __check_bit_index(int, index):
         return (int >> index) & 1
     
+    # Function to convert string type hitobjects in .osu file into objects
     def __parse_hit_object(self, hit_object):
         data = hit_object.split(',')
         
-        obj = [
-            int(data[0]),   # x
-            int(data[1]),   # y
-            int(data[2]),   # time
-            int(data[3]),   # type
-            None,           # endtime
-            0               # buzz slider indicator
+        obj = {
+            'x': int(data[0]),
+            'y': int(data[1]),
+            'time': int(data[2]),
+            'type': int(data[3]),
+            'end_time': -1,
+            'buzz': 0,
+            'slider_data': None,
+        }
+        
+        if self.__check_bit_index(obj['type'], 0):
+            obj['type'] = 1
+        elif self.__check_bit_index(obj['type'], 1):
+            obj['type'] = 6
+            slider_parts = data[5].split('|')
+            slider_data = {
+                'shape':    slider_parts[0],
+                'controls': slider_parts[1:],   
+                'repeats':  int(data[6]),
+                'length':   float(data[7])
+            }
+            obj['slider_data'] = slider_data
+        elif self.__check_bit_index(obj['type'], 3):
+            obj['type'] = 12
+            obj['end_time'] = int(data[5])
+        return obj
+    
+    # Create array of stack counters (not perfect but i can't find more documentation)
+    # Stacking occurs on hit circles and slider heads
+    def __parse_and_stack_count(self, hit_objects):
+        stack_counter = [0] * len(hit_objects)
+        parsed_hit_objects = [None] * len(hit_objects)
+        # The loop is performed in reverse order
+        # If the ith object is within stacking distance and time threshold of i+1th object
+        # Increment stack counter by 1 of i+1th object's stack counter
+        for i in range(len(hit_objects)-1, -1, -1):
+            curr_obj = self.__parse_hit_object(hit_objects[i])
+            parsed_hit_objects[i] = curr_obj
+            
+            # Spinner check
+            if curr_obj['type'] == 12:
+                continue
+            
+            # Calculating time threshold based on current beat duration at time ti
+            # ms_per_beat, _ = self.timing_points.get_current_params(curr_obj['time'])
+            # print(ms_per_beat)
+            time_threshold = self.preempt * self.stack_leniency
+            
+            # Look ahead at future objects to determine if stacking should occur
+            for j in range(i + 1, len(hit_objects)):
+                next_obj = parsed_hit_objects[j]
+                
+                # Check if next_obj is within time threshold
+                if (next_obj['time'] - curr_obj['time']) > time_threshold:
+                    break
+                
+                # Also perfrom spinner check
+                if curr_obj['type'] == 12:
+                    continue
+                
+                # Compute distance between curr and next obj
+                dx = next_obj['x'] - curr_obj['x']
+                dy = next_obj['y'] - curr_obj['y']
+                dist = (dx*dx + dy*dy) ** 0.5
+                
+                # Stacking occurs if the distance falls below the stacking distance threshold
+                if dist < self.stack_dist:
+                    curr_stack_count = stack_counter[j] + 1
+                    
+                    # This ensures that the stack counter is never decremented
+                    # Strange check but there could be potential edge case scenarios
+                    # I cannot explain these scenarios well enough with words
+                    if curr_stack_count > stack_counter[i]:
+                        stack_counter[i] = curr_stack_count
+                        
+        return stack_counter, parsed_hit_objects
+    
+    def __to_array(self, hit_object):
+        obj_array = [
+            hit_object['x'],
+            hit_object['y'],
+            hit_object['time'],
+            hit_object['type'],
+            hit_object['end_time'],
+            hit_object['buzz']
         ]
+        return obj_array
+    
+    def __process_hit_circle(self, hit_circle):
+        if self.hard_rock:
+            hit_circle['y'] = 384 - hit_circle['y']
+         
+        self.hit_circles.append(self.__to_array(hit_circle))
+        self.result_hit_objects.append(self.__to_array(hit_circle))
         
-        # If hit circle
-        if self.__check_bit_index(obj[3], 0):
-            obj[3] = 1
-            obj[4] = -1
-            self.__parse_hit_circle(obj)
+    def __process_spinner(self, spinner):
+        self.spinners.append(self.__to_array(spinner))
         
-        # If slider
-        elif self.__check_bit_index(obj[3], 1):
-            obj[3] = 6
-            self.__parse_slider(obj, data)
+        duration = spinner['end_time'] - spinner['time']
+        interval = 1000.0 / 30.0
+        num_ticks = math.ceil(duration / interval)
         
-        # If spinner
-        elif self.__check_bit_index(obj[3], 3):
-            obj[3] = 12
-            obj[4] = int(data[5])
-            self.__parse_spinner(obj)
+        spinner_ticks = [[spinner['x'], spinner['y'], int(spinner['time'] + interval * i), 13, -1, 0] for i in range(num_ticks)]
+        spinner_ticks[0][3] = 12
+        spinner_ticks[0][4] = int(spinner['end_time'])
+        self.result_hit_objects.extend(spinner_ticks)
+        
+    def __process_slider(self, slider):
+        slider_shapes = {
+            'L' : Linear,
+            'P' : CircleV2,
+            'B' : BezierV2
+        }
+        ms_per_beat, sv_multiplier = self.timing_points.get_current_params(slider['time'])
+        velocity = self.base_multiplier * 100 * sv_multiplier
+        
+        slider_class = slider_shapes[slider['slider_data']['shape']]
+        slider_object = slider_class(slider, ms_per_beat, velocity)
+        ticks = slider_object.get_ticks()
+        
+        if self.hard_rock:
+            ticks[:, 1] = 384 - ticks[:, 1]
+        
+        self.sliders.append(ticks)
+        self.result_hit_objects.extend(ticks)
+        
+    # Function to turn parsed hit objects into format used by visualizer and model
+    # Also applies stacking offsets
+    def __process_hit_objects(self):
+        processors = {
+            1: self.__process_hit_circle,
+            6: self.__process_slider,
+            12: self.__process_spinner
+        }
+        for i in range(len(self.parsed_hit_objects)):
+            hit_object = self.parsed_hit_objects[i]
+            
+            object_offset = self.stack_counter[i] * self.stack_offset
+            hit_object['x'] -= object_offset
+            hit_object['y'] -= object_offset
+            
+            processor_func = processors.get(hit_object['type'])
+            processor_func(hit_object)
+            
+    # def __parse_hit_object(self, hit_object):
+    #     data = hit_object.split(',')
+        
+    #     obj = [
+    #         int(data[0]),   # x
+    #         int(data[1]),   # y
+    #         int(data[2]),   # time
+    #         int(data[3]),   # type
+    #         None,           # endtime
+    #         0               # buzz slider indicator
+    #     ]
+        
+    #     # If hit circle
+    #     if self.__check_bit_index(obj[3], 0):
+    #         obj[3] = 1
+    #         obj[4] = -1
+    #         self.__parse_hit_circle(obj)
+        
+    #     # If slider
+    #     elif self.__check_bit_index(obj[3], 1):
+    #         obj[3] = 6
+    #         self.__parse_slider(obj, data)
+        
+    #     # If spinner
+    #     elif self.__check_bit_index(obj[3], 3):
+    #         obj[3] = 12
+    #         obj[4] = int(data[5])
+    #         self.__parse_spinner(obj)
     
     def __parse_hit_circle(self, obj):
         # hard rocks flips object along x-axis so y position is inverted
@@ -60,7 +222,7 @@ class HitObjects():
             obj[1] = 384 - (obj[1])
             
         self.hit_circles.append(obj)
-        self.all_hit_objects.append(obj)
+        self.parsed_hit_objects.append(obj)
     
     def __parse_spinner(self, obj):
         # I think spinners alway appear in the center of screen so inverted it would be the same
@@ -72,20 +234,20 @@ class HitObjects():
         ticks = [[obj[0], obj[1], int(obj[2] + interval * i), 13, -1, obj[5]] for i in range(len)]
         ticks[0][3] = 12
         ticks[0][4] = int(obj[4])
-        self.all_hit_objects.extend(ticks)
+        self.parsed_hit_objects.extend(ticks)
     
     def __parse_slider(self, obj, data):
         time = obj[2]
         control = data[5].split('|')
         slider_type = control.pop(0)
 
-        base_multiplier = self.map_params.get_slider_multiplier()
+        # base_multiplier = self.map_params.get_slider_multiplier()
         # ms_per_beat = self.timing_points.get_ms_per_beat(time)
         # sv_mulitplier = self.timing_points.get_sv_multiplier(time)
         
         ms_per_beat, sv_multiplier = self.timing_points.get_current_params(time)
         
-        velocity = base_multiplier * 100 * sv_multiplier
+        velocity = self.base_multiplier * 100 * sv_multiplier
         
         slider_types = {
             'L' : Linear,
@@ -100,17 +262,17 @@ class HitObjects():
         if self.hard_rock:
             ticks[:, 1] = 384 - ticks[:, 1]
         self.sliders.append(ticks)
-        self.all_hit_objects.extend(ticks)
-    
+        self.parsed_hit_objects.extend(ticks)
+
     def get_data(self):
         # hit_objects is used by the visualizer
-        hit_objects = {
+        for_visualizer = {
             'hit_circles': np.array(self.hit_circles),
             'spinners': np.array(self.spinners),
             'sliders': np.array(self.sliders, dtype=object)
         }
         # data is used during sequence generation
-        data = np.array(self.all_hit_objects).astype(float)
-        return hit_objects, data
+        for_model = np.array(self.result_hit_objects).astype(float)
+        return for_visualizer, for_model
     
     

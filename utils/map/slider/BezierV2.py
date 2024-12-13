@@ -2,8 +2,8 @@ from .Slider import Slider
 # Bezier slider subclass similar to how bezier sliders are represented in game
 # The bezier segment(s) are approximated with polyline(s)
 class BezierV2(Slider):
-    def __init__(self, data, control, ms_per_beat, velocity):
-        super().__init__(data, control, ms_per_beat, velocity)
+    def __init__(self, slider_object, ms_per_beat, velocity):
+        super().__init__(slider_object, ms_per_beat, velocity)
         self.segments = self._get_bezier_segments()
         self.flattened_path = self._flatten_all_segments()
         self.cumulative_lengths, self.total_length = self._calculate_cumulative_lengths()

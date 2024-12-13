@@ -5,8 +5,8 @@ import math
 # Circle slider subclass
 class CircleV2(Slider):
     
-    def __init__(self, data, control, ms_per_beat, velocity):
-        super().__init__(data, control, ms_per_beat, velocity)
+    def __init__(self, slider_object, ms_per_beat, velocity):
+        super().__init__(slider_object, ms_per_beat, velocity)
         
         try:
             self.cx, self.cy, self.r = self.__calculate_circle()
@@ -19,7 +19,7 @@ class CircleV2(Slider):
             if self.repeats > 1: super()._calculate_repeats()
         except ValueError:
             # This Value Error is thrown when the circle slider is flat and may be considered linear
-            linear = Linear(data, control, ms_per_beat, velocity)
+            linear = Linear(slider_object, ms_per_beat, velocity)
             self.ticks = linear.get_ticks()
     
     # This function takes in 3 control points and calculates the center and radius of circle

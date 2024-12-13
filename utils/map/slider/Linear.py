@@ -2,8 +2,8 @@ from .Slider import Slider
 
 class Linear(Slider):
     
-    def __init__(self, data, control, ms_per_beat, velocity):
-        super().__init__(data, control, ms_per_beat, velocity)
+    def __init__(self, slider_object, ms_per_beat, velocity):
+        super().__init__(slider_object, ms_per_beat, velocity)
         self.unscaled_length = super()._calculate_points_distance(self.control[0], self.control[-1])
         self.scaling_factor = super()._calculate_scaling_factor()
         self._scale_control_points()

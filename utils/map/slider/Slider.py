@@ -2,16 +2,16 @@ import math
 import numpy as np
 class Slider:
     
-    def __init__(self, data, control, ms_per_beat, velocity):
-        self.time = int(data[2])
-        self.repeats = int(data[6])
-        self.length = float(data[7])
+    def __init__(self, slider_object, ms_per_beat, velocity):
+        self.time = slider_object['time']
+        self.repeats = slider_object['slider_data']['repeats']
+        self.length = slider_object['slider_data']['length']
         self.ms_per_beat = ms_per_beat
         self.velocity = velocity
         
         self.control = self.__parse_points(
-            [int(data[0]), int(data[1])],
-            control
+            [slider_object['x'], slider_object['y']],
+            slider_object['slider_data']['controls']
         )
         self.duration_per_slide = self.__calculate_duration()
         self.total_duration = self.duration_per_slide * self.repeats

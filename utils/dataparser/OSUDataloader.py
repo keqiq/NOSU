@@ -83,16 +83,20 @@ class OSUDataloader():
             train_data = data['train']
             train_dataset = OSUDataset(train_data[0], train_data[1], train_data[2])
             torch.save(train_dataset, f'{paths['train']}/train_dataset.pth')
-            
+        
+        print("Creating training dataloader...", end="")
         train_loader = DataLoader(train_dataset, 
                                   batch_size=self.t_b_size, 
                                   shuffle=True, 
                                   drop_last=True,
                                   collate_fn=collate_fn,
                                   pin_memory=True)
+        
+        print("Complete!")
         valid_loaders = []
         valid_folders = os.listdir(paths['valid'])
         valid_data_size = sum(os.path.isdir(os.path.join(paths['valid'], folder)) for folder in valid_folders)
+        print("Creating validation dataloaders...", end="")
         for idx in range(valid_data_size):
             if os.path.exists(f'{paths['valid']}/valid_dataset_{idx}.pth') and not self.regenerate:
                 valid_dataset = torch.load(f'{paths['valid']}/valid_dataset_{idx}.pth')
@@ -108,5 +112,5 @@ class OSUDataloader():
                                       drop_last=True,
                                       collate_fn=collate_fn)
             valid_loaders.append(valid_loader)
-        
+        print("Complete!")
         return train_loader, valid_loaders
