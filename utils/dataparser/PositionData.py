@@ -6,8 +6,8 @@ import torch
 # PositionData transforms .osu map files and .osr replay files into tensors used by position model
 class PositionData(DataParser):
     
-    def __init__(self, set_paths, c_size, t_size, regen=False):
-        super().__init__(set_paths, c_size, t_size, regen)
+    def __init__(self, set_paths, config, regen=False):
+        super().__init__(set_paths, config['pos_context_size'], config['pos_time_window'], regen)
         self.subclass = 'pos'
     
     # Converts .osr replay files into numpy 2d array
@@ -136,7 +136,7 @@ class PositionData(DataParser):
                 # and thus small sequences are dilute in the training examples
                 # This check will take the first object and pad the sequence to c_size + a
                 
-                # Also, duplicate the first object proportional to self.csize to emphasize importance
+                # Also, duplicate the first object proportional to self.csize (a) to emphasize importance
                 # First object is generally a good indicator for good predictions
                 if num_active < self.c_size + int(self.c_size/2):
                     num_to_pad = (self.c_size + int(self.c_size/2)) - num_active
@@ -215,11 +215,3 @@ class PositionData(DataParser):
             torch.save(target_objects, f'{path}/pos_target_obj.pt')
         else:
             return input_sequences, active_time_steps, None
-    
-    # Function to retreive data files from generate_sequence
-    @staticmethod
-    def read_sequences(path):
-        input_seq = torch.load(f'{path}/pos_input_seq.pt')
-        target_seq = torch.load(f'{path}/pos_target_seq.pt')
-        target_obj = torch.load(f'{path}/pos_target_obj.pt')
-        return [input_seq, target_seq, target_obj]

@@ -19,7 +19,7 @@ class OSUDataset(Dataset):
         input_seq = self.input_sequences[idx]
         target_seq = self.target_sequences[idx]
         
-        if self.target_objects is not None:
+        if self.target_objects:
             target_obj = self.target_objects[idx]
         else:
             target_obj = None
@@ -62,11 +62,11 @@ def key_collate_fn(batch):
     return packed_inputs, padded_targets, input_lengths, target_lengths
 
 class OSUDataloader():
-    def __init__(self, data_parser, t_b_size, v_b_size, regenerate=False):
+    def __init__(self, data_parser, config, regenerate=False):
         self.data_parser = data_parser
         self.type = type(data_parser).__name__
-        self.t_b_size = t_b_size
-        self.v_b_size = v_b_size
+        self.t_b_size = config['train_batch_size']
+        self.v_b_size = config['valid_batch_size']
         self.regenerate = regenerate
         
     def get_loaders(self, paths):
@@ -77,14 +77,15 @@ class OSUDataloader():
             collate_fn = key_collate_fn
             
         if os.path.exists(f'{paths['train']}/train_dataset.pth') and not self.regenerate:
+            print("Creating training dataloader...", end="")
             train_dataset = torch.load(f'{paths['train']}/train_dataset.pth')
         else:
             data = self.data_parser.generate()
             train_data = data['train']
+            print("Creating training dataloader...", end="")
             train_dataset = OSUDataset(train_data[0], train_data[1], train_data[2])
             torch.save(train_dataset, f'{paths['train']}/train_dataset.pth')
         
-        print("Creating training dataloader...", end="")
         train_loader = DataLoader(train_dataset, 
                                   batch_size=self.t_b_size, 
                                   shuffle=True, 

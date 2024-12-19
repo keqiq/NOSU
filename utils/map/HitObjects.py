@@ -27,7 +27,7 @@ class HitObjects():
         self.stack_leniency = map_params.get_stack_leniency()
         self.stack_counter, self.parsed_hit_objects = self.__parse_and_stack_count(hit_objects)
         # I'm not sure what the exact offset is but this work fine for now
-        self.stack_offset = 4 * (self.radius / 36.48)
+        self.stack_offset = 3 * (self.radius / 36.48)
         
         # for hit_object in hit_objects:
         #     self.__parse_hit_object(hit_object)
@@ -156,6 +156,8 @@ class HitObjects():
             'P' : CircleV2,
             'B' : BezierV2
         }
+        if slider['time'] == 369920:
+            pass
         ms_per_beat, sv_multiplier = self.timing_points.get_current_params(slider['time'])
         velocity = self.base_multiplier * 100 * sv_multiplier
         
@@ -170,6 +172,7 @@ class HitObjects():
         self.result_hit_objects.extend(ticks)
         
     # Function to turn parsed hit objects into format used by visualizer and model
+    # A kind of wrapper function which calls type specific processing function
     # Also applies stacking offsets
     def __process_hit_objects(self):
         processors = {
@@ -186,84 +189,7 @@ class HitObjects():
             
             processor_func = processors.get(hit_object['type'])
             processor_func(hit_object)
-            
-    # def __parse_hit_object(self, hit_object):
-    #     data = hit_object.split(',')
-        
-    #     obj = [
-    #         int(data[0]),   # x
-    #         int(data[1]),   # y
-    #         int(data[2]),   # time
-    #         int(data[3]),   # type
-    #         None,           # endtime
-    #         0               # buzz slider indicator
-    #     ]
-        
-    #     # If hit circle
-    #     if self.__check_bit_index(obj[3], 0):
-    #         obj[3] = 1
-    #         obj[4] = -1
-    #         self.__parse_hit_circle(obj)
-        
-    #     # If slider
-    #     elif self.__check_bit_index(obj[3], 1):
-    #         obj[3] = 6
-    #         self.__parse_slider(obj, data)
-        
-    #     # If spinner
-    #     elif self.__check_bit_index(obj[3], 3):
-    #         obj[3] = 12
-    #         obj[4] = int(data[5])
-    #         self.__parse_spinner(obj)
     
-    def __parse_hit_circle(self, obj):
-        # hard rocks flips object along x-axis so y position is inverted
-        if self.hard_rock:
-            obj[1] = 384 - (obj[1])
-            
-        self.hit_circles.append(obj)
-        self.parsed_hit_objects.append(obj)
-    
-    def __parse_spinner(self, obj):
-        # I think spinners alway appear in the center of screen so inverted it would be the same
-        self.spinners.append(obj)
-        duration = obj[4] - obj[2]
-        interval = 1000.0/30.0
-        len = math.ceil(duration / interval)
-        
-        ticks = [[obj[0], obj[1], int(obj[2] + interval * i), 13, -1, obj[5]] for i in range(len)]
-        ticks[0][3] = 12
-        ticks[0][4] = int(obj[4])
-        self.parsed_hit_objects.extend(ticks)
-    
-    def __parse_slider(self, obj, data):
-        time = obj[2]
-        control = data[5].split('|')
-        slider_type = control.pop(0)
-
-        # base_multiplier = self.map_params.get_slider_multiplier()
-        # ms_per_beat = self.timing_points.get_ms_per_beat(time)
-        # sv_mulitplier = self.timing_points.get_sv_multiplier(time)
-        
-        ms_per_beat, sv_multiplier = self.timing_points.get_current_params(time)
-        
-        velocity = self.base_multiplier * 100 * sv_multiplier
-        
-        slider_types = {
-            'L' : Linear,
-            'P' : CircleV2,
-            'B' : BezierV2
-        }
-        
-        slider_class = slider_types[slider_type]
-        slider = slider_class(data, control, ms_per_beat, velocity)
-        ticks = slider.get_ticks()
-        # hard rock, flip all ticks along the x-axis
-        if self.hard_rock:
-            ticks[:, 1] = 384 - ticks[:, 1]
-        self.sliders.append(ticks)
-        self.parsed_hit_objects.extend(ticks)
-
     def get_data(self):
         # hit_objects is used by the visualizer
         for_visualizer = {
@@ -274,5 +200,3 @@ class HitObjects():
         # data is used during sequence generation
         for_model = np.array(self.result_hit_objects).astype(float)
         return for_visualizer, for_model
-    
-    

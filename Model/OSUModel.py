@@ -92,7 +92,7 @@ class KeypressDecoder(nn.Module):
         # LSTM decoder
         self.lstm = nn.LSTM(num_keys, hidden_size, num_layers, batch_first=True)
         
-        # Classification key press logit output (0, 1, 2, 11) with hidden state from encoder
+        # Classification key press logit output (0, 1, 2) with hidden state from encoder
         self.key = nn.Linear(hidden_size, num_keys)
         
         self.dropout = nn.Dropout(p=0.5)
@@ -119,7 +119,7 @@ class OSUModelKey(nn.Module):
         key_decoder_input = targets[:, 0, :].unsqueeze(1)
         
         key_outputs = []
-        for t in range(1, targets.size(1)):
+        for t in range(targets.size(1)):
             key_pred, key_hidden = self.key_decoder(key_decoder_input, key_hidden)
             
             # Teacher forcing
@@ -134,50 +134,3 @@ class OSUModelKey(nn.Module):
         key_outputs = torch.cat(key_outputs, dim=1)
         
         return key_outputs
-    
-    
-    # class OSUModel(nn.Module):
-#     def __init__(self, pos_encoder, key_encoder, pos_decoder, key_decoder, device):
-#         super(OSUModel, self).__init__()
-#         self.pos_encoder = pos_encoder
-#         self.key_encoder = key_encoder
-#         self.pos_decoder = pos_decoder
-#         self.key_decoder = key_decoder
-#         self.device = device
-    
-#     def forward(self, input, targets, teacher_forcing_ratio):
-        
-#         # Encode the source sequence
-#         pos_hidden = self.pos_encoder(input)
-#         key_hidden = self.key_encoder(input)
-        
-#         # Initial input for position decoder (batch_size, 1, 2)
-#         pos_decoder_input = targets[:, 0, :2].unsqueeze(1)
-        
-#         # Initial input for keypress decoder (batch_size, 1, num_keys)
-#         key_decoder_input = targets[:, 0, 2:].unsqueeze(1)
-        
-#         # Decode one step at a time
-#         pos_outputs = []
-#         key_outputs = []
-#         for t in range(1, targets.size(1)):
-            
-#             pos_pred, pos_hidden = self.pos_decoder(pos_decoder_input, pos_hidden)
-#             key_pred, key_hidden = self.key_decoder(key_decoder_input, key_hidden)
-            
-#             # Teacher forcing
-#             if torch.rand(1).item() < teacher_forcing_ratio:
-#                 pos_decoder_input = targets[:, t, :2].unsqueeze(1)
-#                 key_decoder_input = targets[:, t, 2:].unsqueeze(1)
-#             else:
-#                 pos_decoder_input = pos_pred
-#                 key_idx = torch.argmax(key_pred, dim=-1)
-#                 key_decoder_input = F.one_hot(key_idx, num_classes=4).float()
-            
-#             pos_outputs.append(pos_pred)
-#             key_outputs.append(key_pred)
-                
-#         pos_outputs = torch.cat(pos_outputs, dim=1)
-#         key_outputs = torch.cat(key_outputs, dim=1)
-        
-#         return pos_outputs, key_outputs

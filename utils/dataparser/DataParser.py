@@ -1,7 +1,6 @@
 from ..map.HitObjects import HitObjects
 from ..map.MapParams import MapParams
 from ..map.TimingPoints import TimingPoints
-from ..map.Stacker import Stacker
 
 import os
 import pandas as pd
@@ -9,18 +8,19 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import torch
+from torch.nn.utils.rnn import pad_sequence
 
 # DataParser turns .osu files and replay files into tensors used during training and inference
 # This is the super class for PositionData and KeypressData providing some type agnoistic functions
 # The structure of tensors for the position model and keypress model is different
 class DataParser:
-    def __init__(self, set_paths, c_size, t_size, regen=False, w=512, h=384):
+    def __init__(self, set_paths, c_size, t_size, regen=False):
         self.set_paths = set_paths
         self.c_size = c_size
         self.t_size = t_size
         self.regen = regen
-        self.W = w
-        self.H = h
+        self.W = 512
+        self.H = 384
     
     # Converts .osu map files into numpy 2d array
     @staticmethod
@@ -229,11 +229,13 @@ class DataParser:
         
         return formatted_results
     
-    # Generates X for one map (inference)
+    # Generates sequences for one map (inference)
     def generate_one(self, path):
         df_X = self.get_X(path, False)
-        input_seq, times, end_times = self.generate_sequences([df_X, None, path])
-        return input_seq, times, end_times
+        
+        inputs, times, end_times = self.generate_sequences([df_X, None, path])
+            
+        return inputs, times, end_times
         
     # Function to format results from read_sequences
     @staticmethod

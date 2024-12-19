@@ -5,8 +5,8 @@ import torch
 
 # KeypressData transforms .osu map files and .osr replay files into tensors used by keypress model
 class KeypressData(DataParser):
-    def __init__(self, set_paths, c_size, t_size):
-        super().__init__(set_paths, c_size, t_size)
+    def __init__(self, set_paths, config, regen=False):
+        super().__init__(set_paths, config['key_context_size'], config['key_time_window'], regen)
         self.subclass = 'key'
         
     # Converts .osr replay files into numpy 2d array
@@ -197,30 +197,9 @@ class KeypressData(DataParser):
                 input_sequences.append(torch.tensor(active_vector, dtype=torch.float32))
                 
         # When creating training data, ProcessPoolExecutor is used for generating sequences in parallel
-        # Pickling the return data is avoided by saving the data to disk then fetching it     
+        # Pickling the return data is avoided by saving the data to disk then fetching it   
         if df_y is not None:
             torch.save(input_sequences, f'{path}/key_input_seq.pt')
             torch.save(target_sequences, f'{path}/key_target_seq.pt')
         else:
             return [input_sequences, times_X, end_times_X] 
-        
-    # Function to retreive data files from generate_sequence
-    @staticmethod
-    def read_sequences(path):
-        input_seq = torch.load(f'{path}/key_input_seq.pt')
-        target_seq = torch.load(f'{path}/key_target_seq.pt')
-        return [input_seq, target_seq, []]
-    
-    # # Function to format results from read_sequences
-    # @staticmethod
-    # def format_results(results):
-    #     train = results['train']
-    #     # Combine train datasets into single dataset
-    #     combined_input, combined_target = [sum(x, []) for x in zip(*train)]
-        
-    #     formatted_results = {
-    #         'train': [combined_input, combined_target],
-    #         'valid': results['valid']
-    #     }
-        
-    #     return formatted_results

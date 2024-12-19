@@ -171,5 +171,14 @@ class BezierV2(Slider):
             results.append([round(tick_x), round(tick_y), tick_time, 7, -1])
             next_tick_distance += tick_distance
             self._update_max_distance([tick_x, tick_y])
+        
+        # Adding slider end as ticks are calculated by distance and not time
+        # The end of the slider at start_time + total duration may be missed in some cases
+        # Missing the slider end is compounded when there are multiple repeats
+        # This usually is only a problem when the slider is very short, fast and repeats a lot
+        if len(results) == 1:
+            end_x, end_y = self.flattened_path[-1]
+            end_tick_time = slider_start_time + total_duration
+            results.append([round(end_x), round(end_y), end_tick_time, 7, -1])
 
         super()._create_ticks_matrix(results)
