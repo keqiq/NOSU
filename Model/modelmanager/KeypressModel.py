@@ -4,6 +4,9 @@ from ..OSUModel import KeypressEncoder, KeypressDecoder, OSUModelKey
 from tqdm import tqdm
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 
+"""
+Keypress model subclass provides loss function and predict function
+"""
 class KeypressModel(ModelManager):
     def __init__(self, name, config, device, trained_model=None):
         if trained_model is None:
@@ -25,9 +28,12 @@ class KeypressModel(ModelManager):
             name = trained_model['model_name']
             
         name = f'[KEY]{name}'
-        model = OSUModelKey(encoder, decoder, device)
+        model = OSUModelKey(encoder, decoder)
         super().__init__(name, config, model, device, weights)
     
+    """
+    Cross entropy loss function
+    """
     def _calculate_losses(self, outputs, data):
         # Keypress targets (batch_size, sequence_len - 1, num_keys)
         targets = data['targets'][:, 1:, :]
@@ -54,10 +60,13 @@ class KeypressModel(ModelManager):
             f"T Loss Replay: {train_losses[0]:.4f} | "
             f"V Loss Replay: {valid_losses[0]:.4f}"
         )
-        
+    
+    """
+    Auto-regressive predict function similar to position model
+    """
     def predict(self, inputs, progress_callback=None):
         self.model.eval()
-        inputs = [t.pin_memory() for t in inputs]
+        inputs = [[padded_input.pin_memory(), input_length.pin_memory()] for padded_input, input_length in inputs]
         predictions = []
         total_inputs = len(inputs)
         with torch.no_grad():
@@ -65,10 +74,8 @@ class KeypressModel(ModelManager):
             # Keypress will be key1 (1.0, 0.0)
             prev_pred = torch.tensor([1.0, 0.0], device=self.device).unsqueeze(0).unsqueeze(1)
             
-            for idx, input in tqdm(enumerate(inputs), total=len(inputs), desc="Predicting Keypress"):
-                input_length = torch.tensor([len(input)], dtype=torch.long)
-                input = input.to(self.device).unsqueeze(0)
-                padded_input = pad_sequence(input, batch_first=True, padding_value=0)
+            for idx, (padded_input, input_length) in tqdm(enumerate(inputs), total=len(inputs), desc="Predicting Keypress"):
+                padded_input = padded_input.to(self.device)
                 packed_input = pack_padded_sequence(padded_input, input_length, batch_first=True, enforce_sorted=False)
 
                 output = self.model(packed_input, prev_pred)

@@ -2,8 +2,11 @@ import torch
 from .ModelManager import ModelManager
 from ..OSUModel import PositionEncoder, PositionDecoder, OSUModelPos
 from tqdm import tqdm
-from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
+from torch.nn.utils.rnn import pack_padded_sequence
 
+"""
+Position model subclass provides loss function and predict function
+"""
 class PositionModel(ModelManager):
     def __init__(self, name, config, device, trained_model=None):
         if trained_model is None:
@@ -39,13 +42,15 @@ class PositionModel(ModelManager):
             name = trained_model['model_name']
         
         name = f'[POS]{name}'
-        model = OSUModelPos(encoder, decoder, device)
+        model = OSUModelPos(encoder, decoder)
         
         super().__init__(name, config, model, device, weights)
         
-    # Loss calculation of combined losses
-    # Replay loss is the loss between player replay data and model prediction
-    # Object loss is the loss between the object with smallest time delta and model prediction
+    """
+    Loss calculation of combined losses
+    Replay loss is the loss between player replay data and model prediction
+    Object loss is the loss between the object with smallest time delta and model prediction
+    """
     def _calculate_losses(self, outputs, data):
         # Position targets (batch_size, 2, 2)
         # Removing previous positions from targets
@@ -89,10 +94,12 @@ class PositionModel(ModelManager):
         # No weight is applied for object outside of the time threshold
         time_weights = torch.clamp((0.1 - time_values) / 0.1, min=0, max=1)
         
-        # Epsilon or acceptable margin of error where no object loss is applied
-        # Epsilon decreases when time delta is small
-        # Epsilon is decreased for high type weights
-        # Epsilon is scaled up for buzz sliders
+        """
+        Epsilon is the acceptable margin of error where no object loss is applied
+        Epsilon decreases when time delta is small
+        Epsilon is decreased for high type weights
+        Epsilon is scaled up for buzz sliders
+        """
         epsilon = self.epsilon_min + (self.epsilon_max - self.epsilon_min) * torch.pow(time_values, self.n)
         epsilon = (epsilon + (epsilon * slider_mask * 2)) * (10 / object_type_multiplier)
         
@@ -115,25 +122,24 @@ class PositionModel(ModelManager):
             f"V Loss Object: {valid_losses[1]:.4f}"
             )
     
-    # Prediction loop
-    # Autoregressive predictions happen one at a time, batch size is 1 and this is basically a sequential for loop
-    # Could use futher optimization
+    """
+    Prediction loop
+    Autoregressive predictions happen one at a time, batch size is 1 and this is basically a sequential for loop
+    Could use futher optimization
+    """
     def predict(self, inputs, progress_callback=None):
         self.model.eval()
-        inputs = [t.pin_memory() for t in inputs]
+        inputs = [[padded_input.pin_memory(), input_length.pin_memory()] for padded_input, input_length in inputs]
         predictions = []
         total_inputs = len(inputs)
         with torch.no_grad():
             # Initializing first cursor position (center)
             prev_pred = torch.tensor([0.5, 0.5], device=self.device).unsqueeze(0).unsqueeze(1)  # Shape (1, 1, 2)
             
-            for idx, input in tqdm(enumerate(inputs), total=len(inputs), desc="Predicting Position"):
-                input_length = torch.tensor([len(input)], dtype=torch.long)
-                input = input.to(self.device).unsqueeze(0)
-                padded_input = pad_sequence(input, batch_first=True, padding_value=0)              # Shape (1, seq_len, feature_size)
-                
+            for idx, (padded_input, input_length) in tqdm(enumerate(inputs), total=total_inputs, desc="Predicting Position"):
+                padded_input = padded_input.to(self.device)
+
                 # Calculating relative distance from objects in the sequence and prev_pred
-                # prev_pos = prev_pred.squeeze(0).squeeze(0)                      # Shape (2,)
                 dist_x = (padded_input[:, :, 0] - prev_pred[:, :, 0]).unsqueeze(2)     # Shape (1, seq_len, 1)
                 dist_y = (padded_input[:, :, 1] - prev_pred[:, :, 1]).unsqueeze(2)     # Shape (1, seq_len, 1)
                 
@@ -150,9 +156,11 @@ class PositionModel(ModelManager):
                 
                 predictions.append(output)
                 
+                # Call back to update gui progress bars
                 if progress_callback and (idx + 1) % 1000 == 0:
                     progress_callback((idx + 1) / total_inputs, 'Position')
-                    
+                
+        # On complete set the progress to 100%
         if progress_callback:
             progress_callback(1.0, 'Position')
                 

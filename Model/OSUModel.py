@@ -46,11 +46,10 @@ class PositionDecoder(nn.Module):
         return pos_output, hidden
     
 class OSUModelPos(nn.Module):
-    def __init__(self, pos_encoder, pos_decoder, device):
+    def __init__(self, pos_encoder, pos_decoder):
         super(OSUModelPos, self).__init__()
         self.pos_encoder = pos_encoder
         self.pos_decoder = pos_decoder
-        self.device = device
     
     def forward(self, input, targets, teacher_forcing_ratio = 0):
         
@@ -107,11 +106,10 @@ class KeypressDecoder(nn.Module):
         return key_output, hidden
     
 class OSUModelKey(nn.Module):
-    def __init__(self, key_encoder, key_decoder, device):
+    def __init__(self, key_encoder, key_decoder):
         super(OSUModelKey, self).__init__()
         self.key_encoder = key_encoder
         self.key_decoder = key_decoder
-        self.device = device
         
     def forward(self, input, targets, teacher_forcing_ratio=0):
         key_hidden = self.key_encoder(input)

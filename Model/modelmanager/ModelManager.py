@@ -1,7 +1,9 @@
 import torch
 import time
-# Super class of PositionModel and KeypressModel
-# Classes for handling training and inference
+""" 
+Super class of PositionModel and KeypressModel
+Classes for handling training and inference
+"""
 class ModelManager():
     def __init__(self, name, config, model, device, weights=None):
         self.device = device
@@ -35,7 +37,9 @@ class ModelManager():
         else:
             self.model.load_state_dict(weights)
             
-        
+    """
+    Function to unpack batch from dataloader
+    """
     def _unpack(self, batch):
         data = {
             "inputs":   batch[0].to(self.device),
@@ -45,7 +49,9 @@ class ModelManager():
         }
         return data
         
-    # Training and validation 
+    """
+    Training and validation loop
+    """
     def train(self, train_loader, valid_loaders):
         total_train_len = len(train_loader)
         total_valid_len = 0
@@ -135,7 +141,10 @@ class ModelManager():
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f"Training completed in {elapsed_time:.2f} seconds")
-        
+    
+    """
+    Function to save model name, hyperparameters and weights as .pth file
+    """
     def save_model(self, path):
         torch.save({
             "model_name": self.name,

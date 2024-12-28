@@ -2,7 +2,9 @@ from .Slider import Slider
 from .Linear import Linear
 import math
 
-# Circle slider subclass
+"""
+Circle slider subclass
+"""
 class CircleV2(Slider):
     
     def __init__(self, slider_object, ms_per_beat, velocity):
@@ -12,18 +14,20 @@ class CircleV2(Slider):
             self.cx, self.cy, self.r = self.__calculate_circle()
             self.arc_angle, self.is_ccw = self.__determine_arc_direction()
             self.unscaled_length = self.r * self.arc_angle
-            self.scaling_factor = super()._calculate_scaling_factor()
+            self.scaling_factor = self._calculate_scaling_factor()
             self._scale_circle()
             
-            super()._calculate_ticks()
-            if self.repeats > 1: super()._calculate_repeats()
+            self._calculate_ticks()
+            if self.repeats > 1: self._calculate_repeats()
         except ValueError:
             # This Value Error is thrown when the circle slider is flat and may be considered linear
             linear = Linear(slider_object, ms_per_beat, velocity)
             self.ticks = linear.get_ticks()
     
-    # This function takes in 3 control points and calculates the center and radius of circle
-    # If points are collinear (flat) then falls back to linear slider    
+    """    
+    This function takes in 3 control points and calculates the center and radius of circle
+    If points are collinear (flat) then falls back to linear slider
+    """ 
     def __calculate_circle(self):
         p1, p2, p3 = self.control
         x1, y1 = p1
@@ -47,7 +51,9 @@ class CircleV2(Slider):
         radius = math.sqrt((cx - x1)**2 + (cy - y1)**2)
         return cx, cy, radius
     
-    # Determines arc direction cw or ccw and compute arc angle
+    """
+    Function to determine arc direction cw or ccw and compute arc angle
+    """
     def __determine_arc_direction(self):
         p1, p2, p3 = self.control
         x1, y1 = p1
@@ -75,7 +81,9 @@ class CircleV2(Slider):
             # Arc is clockwise
             return angle13_cw, False
         
-    # Function to scale the points according to slider length in .osu map file
+    """
+    Function to scale the points according to slider length in .osu map file
+    """
     def _scale_circle(self):
         x1, y1 = self.control[0]
         
@@ -92,13 +100,11 @@ class CircleV2(Slider):
         # Translate back
         self.cx += x1
         self.cy += y1
-
     
-    # Finds a point on the circle given t between 0 and 1
+    """
+    Circle slider tick interpolation function
+    """
     def _tick_interp(self, t):
-        x1, y1 = self.control[0]
-        x3, y3 = self.control[2]
-
         # Use the arc direction
         if self.is_ccw:
             # Counter-clockwise

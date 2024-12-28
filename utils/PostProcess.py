@@ -5,9 +5,11 @@ from osrparse.utils import ReplayEventOsu, Key
 import hashlib
 from datetime import datetime
 
-# Position model predictions are done in 60hz
-# This will interpolate the points so that there is position update every 8ms
-# It looks better but is not necessary
+"""
+Position model predictions are done in 60hz
+This function will interpolate the points so that there is position update every 8ms
+It looks better but is not necessary
+"""
 def _interpolate_position(positions):
     time = positions[:, 0]
     x = positions[:, 1]
@@ -67,6 +69,9 @@ def _interpolate_position(positions):
     final_data = np.column_stack((final_time, final_x, final_y))
     return final_data
 
+"""
+Function to merge the position and keypress prediction
+"""
 def _merge_pos_key(positions_matrix, keypresses_matrix):
     times_array = positions_matrix[:, 0]
     update_indices = []
@@ -119,7 +124,10 @@ def _merge_pos_key(positions_matrix, keypresses_matrix):
         positions_matrix[idx, 3] = keycode
     
     return positions_matrix
-    
+
+"""
+Function to process position and keypress prediction into format used to generate replay
+"""
 def post_process(p_pred, k_pred, p_time, k_time, k_end_time):
     
     # Flattening tensors and converting to np arrays
@@ -158,19 +166,28 @@ def post_process(p_pred, k_pred, p_time, k_time, k_end_time):
     
     return replay_matrix
 
-def _get_beatmap_name_hash(map_path):
+"""
+Function to determine beatmap md5 hash and name
+"""
+def _get_beatmap_name_hash(map_path, max_song_len=30, max_diff_len=30):
     with open(map_path, 'r', encoding='utf-8') as file:
         lines = file.read()
 
     metadata = lines.split('\n\n')[3]
     content = metadata.split('\n')
-    map_name = f'{content[1].split(':')[1]}[{content[6].split(':')[1]}]'
+    song_name, diff_name = content[1].split(':')[1], content[6].split(':')[1]
+    song_name = song_name[:max_song_len]
+    diff_name = diff_name[:max_diff_len]
+    map_name = f'{song_name}[{diff_name}]'
     
     hash_data = lines.replace('\r\n', '\n').replace('\n', '\r\n')
     hash_md5 = hashlib.md5(hash_data.encode('utf-8')).hexdigest()
     
     return map_name, hash_md5
 
+"""
+Function to save the result from post_process into .osr format
+"""
 def save_replay(replay_predictions, replay_path, map_path, pos_name, key_name):
     replay = Replay.from_path(replay_path)
     map_name, map_hash = _get_beatmap_name_hash(map_path)

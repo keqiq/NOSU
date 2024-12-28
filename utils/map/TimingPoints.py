@@ -28,15 +28,6 @@ class TimingPoints():
         self.inherited_timing_points = np.array(itps)
         
     def __get_timing_point(self, time):
-        # if type == "uninherited":
-        #     tp = self.uninherited_timing_points
-        # elif type == 'inherited':
-        #     # Check for case where there is no inherited timing point at current time
-        #     tp = self.inherited_timing_points
-        
-        # splice = tp[:, 0]
-        # last_tp_index = np.searchsorted(splice, time, side='right') - 1
-        # return tp[last_tp_index]
         
         utps_splice = self.uninherited_timing_points[:, 0]
         itps_splice = self.inherited_timing_points[:, 0]

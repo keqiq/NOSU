@@ -3,15 +3,19 @@ from osrparse import Replay
 import numpy as np
 import torch
 
-# PositionData transforms .osu map files and .osr replay files into tensors used by position model
+"""
+PositionData transforms .osu map files and .osr replay files into tensors used by position model
+"""
 class PositionData(DataParser):
     
     def __init__(self, set_paths, config, regen=False):
         super().__init__(set_paths, config['pos_context_size'], config['pos_time_window'], regen)
         self.subclass = 'pos'
     
-    # Converts .osr replay files into numpy 2d array
-    # Checks for Hard Rock (hr) mod, which flips hitobjects on the x-axis
+    """
+    Converts .osr replay files into numpy 2d array
+    Checks for Hard Rock (hr) mod, which flips hitobjects on the x-axis
+    """
     @staticmethod
     def parse_replay(replay_path):
         replay = Replay.from_path(replay_path)
@@ -29,8 +33,10 @@ class PositionData(DataParser):
         while i < len(replay_data):
             time_delta = replay_data[i].time_delta
             
-            # Some samples intervals are irregular < 16ms due to keypress inputs which will impact training
-            # This will merge those samples so that most intervals are 16 or 17 ms apart
+            """
+            Some samples intervals are irregular < 16ms due to keypress inputs which will impact training
+            This will merge those samples so that most intervals are 16 or 17 ms apart
+            """
             if time_delta < 16:
                 look_foward = 1
                 total_time_delta = time_delta
@@ -53,7 +59,9 @@ class PositionData(DataParser):
         
         return np.array(results), hr
     
-    # Function to generate sequences given a set containing X, y(optional) and path
+    """
+    Function to generate sequences given a set containing X, y(optional) and path
+    """
     def generate_sequences(self, set):
         df_X, df_y, path = set
         
@@ -62,10 +70,12 @@ class PositionData(DataParser):
         feats_X = df_X[['x_norm', 'y_norm', 'type_1.0', 'type_6.0', 
                               'type_7.0', 'type_12.0', 'type_13.0', 'buzz']].values
         
-        # Extracting relevant columns from df_y for position sequence targets
-        # time_steps contains the time at which there is a sample for cursor movement 
-        # Targets (df_y) is not available during inference
-        # During inference create dummy time_steps at every ~16.6ms
+        """
+        Extracting relevant columns from df_y for position sequence targets
+        time_steps contains the time at which there is a sample for cursor movement 
+        Targets (df_y) is not available during inference
+        During inference create dummy time_steps at every ~16.6ms
+        """
         if df_y is not None:
             times_y = df_y['time'].values
             targets_y = df_y[['x_norm', 'y_norm']].values
@@ -88,12 +98,14 @@ class PositionData(DataParser):
         start_idx = 0
         end_idx = 0
         
-        # Loop to iterate over every time_step t
-        # The input sequence contains c_size objects from X within t and t + t_size
-        # The target sequence (training) contains the cursor sample from y at t and the previous sample
-        # The target object is the object with the smallest time delta to t
-        # t is added to active_time_steps (inference) if the input sequence is not empty
-        # In other words, t is not active if there are no objects within t and t + t_size
+        """        
+        Loop to iterate over every time_step t
+        The input sequence contains c_size objects from X within t and t + t_size
+        The target sequence (training) contains the cursor sample from y at t and the previous sample
+        The target object is the object with the smallest time delta to t
+        t is added to active_time_steps (inference) if the input sequence is not empty
+        In other words, t is not active if there are no objects within t and t + t_size
+        """
         
         for y_idx, t in enumerate(time_steps):
             
@@ -131,13 +143,15 @@ class PositionData(DataParser):
                     active_objs = np.concatenate([[prev_obj], active_objs])
                     active_times = np.concatenate([[prev_time], active_times])
                     
-                # The model performs worse when there are few objects in the input sequence
-                # Could be due to most maps having relatively few portions where only few objects are present
-                # and thus small sequences are dilute in the training examples
-                # This check will take the first object and pad the sequence to c_size + a
+                """
+                The model performs worse when there are few objects in the input sequence
+                Could be due to most maps having relatively few portions where only few objects are present
+                and thus small sequences are dilute in the training examples
+                This check will take the first object and pad the sequence to c_size + a
                 
-                # Also, duplicate the first object proportional to self.csize (a) to emphasize importance
-                # First object is generally a good indicator for good predictions
+                Also, duplicate the first object proportional to self.csize (a) to emphasize importance
+                First object is generally a good indicator for good predictions
+                """
                 if num_active < self.c_size + int(self.c_size/2):
                     num_to_pad = (self.c_size + int(self.c_size/2)) - num_active
                     obj_padding = np.tile(active_objs[0], (num_to_pad, 1))
@@ -177,15 +191,11 @@ class PositionData(DataParser):
                     immediate_idx = 0
                     immediate_vector = active_vector[immediate_idx]
                     
-                    # # For hybrid loss, only hit circles and slider starts and slider ticks should be considered
-                    # # Column 2 is hit circle, 3 is slider start and 4 is slider tick
-                    # valid_types = immediate_obj[[2, 3, 4]]
-                    # weight = np.sum(self.type_weight * valid_types)
+                    """
+                    For hybrid loss, only hit circles and slider starts and slider ticks should be considered
+                    Column 2 is hit circle, 3 is slider start and 4 is slider tick
+                    """
                     
-                    # immediate_vector = np.hstack((
-                    #     immediate_obj[[0, 1, 7, 8]], #x, y, buzz, time
-                    #     weight,
-                    # ))
                     target_objects.append(
                         torch.tensor(immediate_vector,
                         dtype=torch.float32        

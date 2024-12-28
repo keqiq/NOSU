@@ -3,13 +3,17 @@ from osrparse import Replay
 import numpy as np
 import torch
 
-# KeypressData transforms .osu map files and .osr replay files into tensors used by keypress model
+"""
+KeypressData transforms .osu map files and .osr replay files into tensors used by keypress model
+"""
 class KeypressData(DataParser):
     def __init__(self, set_paths, config, regen=False):
         super().__init__(set_paths, config['key_context_size'], config['key_time_window'], regen)
         self.subclass = 'key'
         
-    # Converts .osr replay files into numpy 2d array
+    """
+    Function to convert .osr replay files into numpy 2d array
+    """
     @staticmethod
     def parse_replay(replay_path):
         replay = Replay.from_path(replay_path)
@@ -23,8 +27,11 @@ class KeypressData(DataParser):
         
         return np.array(results), False
     
-    # When both key1 (1) and key2 (10) are pressed down a new keycode (11) is used to represent the state
-    # For simplicity, this function will replace said keycode with key1 or key2
+    """
+    Function to remove overlap keys
+    When both key1 (1) and key2 (10) are pressed down a new keycode (11) is used to represent the state
+    For simplicity, this function will replace said keycode with key1 or key2
+    # """
     @staticmethod
     def _remove_overlap_keypresses(keypresses):
         keypresses = keypresses.flatten()
@@ -53,10 +60,12 @@ class KeypressData(DataParser):
                     
         return keypresses
     
-    # This function will filter and array of keypresses and keep the non consequtive keypresses then one-hot encode it
-    # For example a sequence containing [key1, key1, key0, key0, key0, key1, key2, key2] will result in [key1, key1, key2]
-    # The size of the sequence should match the number of active objects
-    # This simplifies the learning significantly as the model need only learn which keys to press down for each object
+    """ 
+    Function to filter array of keypresses and keep the non consequtive keypresses then one-hot encode it
+    For example a sequence containing [key1, key1, key0, key0, key0, key1, key2, key2] will result in [key1, key1, key2]
+    The size of the sequence should match the number of active objects
+    This simplifies the learning significantly as the model need only learn which keys to press down for each object
+    """
     @staticmethod
     def _filter_ohe_keys(keys, classes=[1.0, 10.0]):
         # mask the positions where the keypresses change
@@ -84,7 +93,9 @@ class KeypressData(DataParser):
         
         return one_hot
          
-    # Function to generate sequences given a set containing X, y(optional) and path
+    """
+    Function to generate sequences given a set containing X, y(optional) and path
+    """
     def generate_sequences(self, set):
         df_X, df_y, path = set
         
@@ -119,10 +130,12 @@ class KeypressData(DataParser):
             start_idx_y = 0
             end_idx_y = 0
             
-        # Loop to iterate over every time in times_X t
-        # The input sequence contains up to c_size objects from X within t and t + t_size
-        # The target sequence (training) contains all non consequtive keypresses from y within a window
-        # The window is between t and time value of the last object in the current selection
+        """
+        Loop to iterate over every time in times_X t
+        The input sequence contains up to c_size objects from X within t and t + t_size
+        The target sequence (training) contains all non consequtive keypresses from y within a window
+        The window is between t and time value of the last object in the current selection
+        """
         for t in times_X:
             
             # Setting pointers to contain objects within time window (t --- t + t_size)
@@ -171,11 +184,12 @@ class KeypressData(DataParser):
                     filtered_ohe_keys= self._filter_ohe_keys(keys)
                     num_keys = len(filtered_ohe_keys)
                     
-                    # _filter_ohe_keys should return a sequence with the same size as active_obj in most cases
-                    # Due to game mechanics and human delays there may be exceptions
-                    # These conditionals will check if exceptions occur
-                    
-                    # If for some reason there is no input, skip current t as it is invalid
+                    """
+                    _filter_ohe_keys should return a sequence with the same size as active_obj in most cases
+                    Due to game mechanics and human delays there may be exceptions
+                    These conditionals will check if exceptions occur
+                    If for some reason there is no input, skip current t as it is invalid
+                    """
                     if num_keys == 0:
                         continue
                     if num_keys < num_active:

@@ -3,6 +3,10 @@ import time
 import pygame
 import sys
 
+"""
+I use visualiser for debugging
+It displays hitobjects returned by HitObjects to see if it matches with replay
+"""
 # replay parameters
 
 WIDTH, HEIGHT = 512, 384

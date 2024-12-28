@@ -10,9 +10,11 @@ from tqdm import tqdm
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
-# DataParser turns .osu files and replay files into tensors used during training and inference
-# This is the super class for PositionData and KeypressData providing some type agnoistic functions
-# The structure of tensors for the position model and keypress model is different
+"""
+DataParser turns .osu files and replay files into tensors used during training and inference
+This is the super class for PositionData and KeypressData providing some type agnoistic functions
+The structure of tensors for the position model and keypress model is different
+"""
 class DataParser:
     def __init__(self, set_paths, c_size, t_size, regen=False):
         self.set_paths = set_paths
@@ -22,7 +24,9 @@ class DataParser:
         self.W = 512
         self.H = 384
     
-    # Converts .osu map files into numpy 2d array
+    """
+    Function to convert .osu map files into numpy 2d array
+    """
     @staticmethod
     def _parse_map(map_path, hr):
         with open(map_path, 'r', encoding='utf-8') as file:
@@ -55,10 +59,12 @@ class DataParser:
         
         return ho.get_data()
 
-    # Converts the numpy array from _parse_map into a dataframe
-    # Also perfroms some preprocessing on features
-    # Useful for analysing the data and required for sequence generation
-    # Either provide a folder containing the map (training) or the map path (inference)
+    """ 
+    Converts the numpy array from _parse_map into a dataframe
+    Also perfroms some preprocessing on features
+    Useful for analysing the data and required for sequence generation
+    Either provide a folder containing the map (training) or the map path (inference)
+    """
     def get_X(self, folder_path, hr, map_path=None):
         if map_path:
             _, feats = self._parse_map(map_path, hr)
@@ -83,8 +89,10 @@ class DataParser:
         
         return x
     
-    # Converts the numpy array from parse_replay into a dataframe
-    # Similar to get_X but is only needed for training 
+    """
+    Converts the numpy array from parse_replay into a dataframe
+    Similar to get_X but is only needed for training
+    """
     def get_y(self, path):
         target, hr = self.parse_replay(list(Path(path).glob('*.osr'))[0])
 
@@ -95,11 +103,13 @@ class DataParser:
         y['x_norm'] = y['x'] / self.W
         y['y_norm'] = y['y'] / self.H
         
-        # Compressing keycodes where different keycode refer to same action
-        # Bitwise combination of keys/mouse buttons pressed 
-        # (M1 = 1, M2 = 2, K1 = 4, K2 = 8, Smoke = 16) 
-        # (K1 is always used with M1; K2 is always used with M2: 1+4=5; 2+8=10)
-        # From osu wiki
+        """
+        Compressing keycodes where different keycode refer to same action
+        Bitwise combination of keys/mouse buttons pressed 
+        (M1 = 1, M2 = 2, K1 = 4, K2 = 8, Smoke = 16) 
+        (K1 is always used with M1; K2 is always used with M2: 1+4=5; 2+8=10)
+        From osu wiki
+        """
         y['keycode'] = y['keycode'].replace({
             5: 1,   #key 1
             2: 10,  #key 2
@@ -112,13 +122,18 @@ class DataParser:
         
         return y, hr
     
-    # Self explanatory
-    # Note in order to get X we first need the hr flag from the replay file
+    """
+    Function to get y first then X during training
+    Note in order to get X we first need the hr flag from the replay file
+    """
     def _get_Xy(self, path):
         df_y, hr = self.get_y(path)
         df_X = self.get_X(path, hr)
         return [df_X, df_y, path]
     
+    """
+    Function to read .pth tensor files from disk
+    """
     def _read_sequences(self, path):
         input_seq = torch.load(f'{path}/{self.subclass}_input_seq.pt')
         target_seq = torch.load(f'{path}/{self.subclass}_target_seq.pt')
@@ -129,8 +144,10 @@ class DataParser:
         return [input_seq, target_seq, target_obj]
     
     
-    # Function to read .osu map files and .osr replay files in parallel
-    # Provide the path to the folder containing folders which contains the map and associated replay
+    """
+    Function to read .osu map files and .osr replay files in parallel
+    Provide the path to the folder containing folders which contains the map and associated replay
+    """
     def _get_dataframes(self, set_path):
         all_folders = [os.path.join(set_path, folder) for folder in os.listdir(set_path) if os.path.isdir(os.path.join(set_path, folder))]
         
@@ -164,8 +181,10 @@ class DataParser:
         
         return set
     
-    # Function to generate sequences given a set containing X, y and path
-    # There is no return as the resulting data is written to disk to avoid pickling between processes
+    """
+    Function to generate sequences given a set containing X, y and path in parallel
+    There is no return as the resulting data is written to disk to avoid pickling between processes
+    """
     def _generate_set_sequences(self, sets):
         with ProcessPoolExecutor() as executor:
             failures = 0
@@ -182,7 +201,9 @@ class DataParser:
 
         print(f"{failures} failures out of {len(futures)} total tasks.")
     
-    # Function to read data files from disk from generate_set_sequences
+    """
+    Function to read data files from disk from generate_set_sequences in parallel
+    """
     def _get_set_sequences(self, set_path):
         set_folders = [os.path.join(set_path, folder) for folder in os.listdir(set_path) if os.path.isdir(os.path.join(set_path, folder))]
         results = []
@@ -197,7 +218,9 @@ class DataParser:
                  
         return results
     
-    # Wrapper function to handle every conversion step
+    """
+    Wrapper function to handle every conversion step
+    """
     def generate(self):
         datasets = {
             'train': None,
@@ -229,15 +252,25 @@ class DataParser:
         
         return formatted_results
     
-    # Generates sequences for one map (inference)
+    """
+    Function to generate sequences for one map (inference)
+    """
     def generate_one(self, path):
         df_X = self.get_X(None, False, path)
         
-        inputs, times, end_times = self.generate_sequences([df_X, None, path])
+        sequences, times, end_times = self.generate_sequences([df_X, None, path])
+        
+        inputs = []
+        for seq in sequences:
+            input_length = torch.tensor([seq.size(0)], dtype=torch.long)
+            padded_input = pad_sequence([seq], batch_first=True, padding_value=0)
+            inputs.append([padded_input, input_length])
             
         return inputs, times, end_times
         
-    # Function to format results from read_sequences
+    """
+    Function to format results from read_sequences to be passed into dataloader
+    """
     @staticmethod
     def format_results(results):
         train = results['train']
