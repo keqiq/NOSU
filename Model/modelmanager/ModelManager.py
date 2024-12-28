@@ -1,29 +1,40 @@
 import torch
 import time
-
 # Super class of PositionModel and KeypressModel
 # Classes for handling training and inference
 class ModelManager():
-    def __init__(self, name, config, model):
-        self.name = name
-        self.min_lr = config['early_stopping_learning_rate']
-        self.max_epoch = config['max_epoch']
-        
+    def __init__(self, name, config, model, device, weights=None):
+        self.device = device
         self.model = model.to(self.device)
-        
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(),
-            lr = config['learning_rate'],
-            weight_decay = config['weight_decay']
-        )
-        
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer,
-            mode='min',
-            factor=0.1,
-            patience=config['patience'],
-            threshold=1e-4
-        )
+        self.name = name
+        if weights is None:
+            self.min_lr = config['early_stopping_learning_rate']
+            self.max_epoch = config['max_epoch']
+            
+            self.optimizer = torch.optim.Adam(
+                self.model.parameters(),
+                lr = config['learning_rate'],
+                weight_decay = config['weight_decay']
+            )
+            
+            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode='min',
+                factor=0.1,
+                patience=config['patience'],
+                threshold=1e-4
+            )
+            
+            self.hyperparameters = {
+                "input_size": self.input_size,
+                "hidden_size": self.hidden_size,
+                "num_layers": self.num_layers,
+                "context_size": self.context_size,
+                "time_window": self.time_window
+            }
+        else:
+            self.model.load_state_dict(weights)
+            
         
     def _unpack(self, batch):
         data = {
@@ -125,14 +136,11 @@ class ModelManager():
         elapsed_time = end_time - start_time
         print(f"Training completed in {elapsed_time:.2f} seconds")
         
-    def save_model(self):
-        torch.save(self.model.state_dict(), f'{self.name}.pth')
+    def save_model(self, path):
+        torch.save({
+            "model_name": self.name,
+            "hyperparameters": self.hyperparameters,
+            "model_weights": self.model.state_dict()
+        }, f'{path}/{self.name}.pth')
         
-    def load_model(self, model_path):
-        self.model.load_state_dict(torch.load(model_path))
-        
-            
-            
-                
-                    
-        
+        print(f"Saved {self.name} to {path}/{self.name}.pth")

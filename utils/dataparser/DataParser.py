@@ -231,7 +231,7 @@ class DataParser:
     
     # Generates sequences for one map (inference)
     def generate_one(self, path):
-        df_X = self.get_X(path, False)
+        df_X = self.get_X(None, False, path)
         
         inputs, times, end_times = self.generate_sequences([df_X, None, path])
             

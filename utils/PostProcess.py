@@ -2,7 +2,8 @@ import numpy as np
 from scipy.interpolate import interp1d
 from osrparse import Replay
 from osrparse.utils import ReplayEventOsu, Key
-from pathlib import Path
+import hashlib
+from datetime import datetime
 
 # Position model predictions are done in 60hz
 # This will interpolate the points so that there is position update every 8ms
@@ -157,9 +158,22 @@ def post_process(p_pred, k_pred, p_time, k_time, k_end_time):
     
     return replay_matrix
 
-def save_replay(replay_predictions, path, pos_version, key_version):
-    replay_path = list(Path(path).glob('*.osr'))[0]
+def _get_beatmap_name_hash(map_path):
+    with open(map_path, 'r', encoding='utf-8') as file:
+        lines = file.read()
+
+    metadata = lines.split('\n\n')[3]
+    content = metadata.split('\n')
+    map_name = f'{content[1].split(':')[1]}[{content[6].split(':')[1]}]'
+    
+    hash_data = lines.replace('\r\n', '\n').replace('\n', '\r\n')
+    hash_md5 = hashlib.md5(hash_data.encode('utf-8')).hexdigest()
+    
+    return map_name, hash_md5
+
+def save_replay(replay_predictions, replay_path, map_path, pos_name, key_name):
     replay = Replay.from_path(replay_path)
+    map_name, map_hash = _get_beatmap_name_hash(map_path)
 
     time_deltas = np.diff(replay_predictions[:, 0], prepend=replay_predictions[0, 0])
     time_deltas[0] = replay_predictions[0, 0]
@@ -178,15 +192,13 @@ def save_replay(replay_predictions, path, pos_version, key_version):
     ]
 
     replay.replay_data = markers + replay_data
-    replay.username = f'Model_p{pos_version}_k{key_version}'
+    
+    pos_name, key_name = pos_name.split(']')[1], key_name.split(']')[1]
+    if pos_name == key_name:
+        replay.username = pos_name
+    else:
+        replay.username = f'{pos_name}_{key_name}'
+    replay.beatmap_hash = map_hash
+    replay.timestamp = datetime.now()
 
-    replay.write_path(f"{path}/predictions_{pos_version}_{key_version}.osr")
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    replay.write_path(f"./{replay.username}-{map_name}.osr")

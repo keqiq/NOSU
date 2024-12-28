@@ -16,12 +16,13 @@ class PositionEncoder(nn.Module):
         batch_size = x.batch_sizes[0]
         h_0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(x.data.device)  # hidden state
         c_0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(x.data.device)  # cell state
+        hidden = (h_0, c_0)
         
         # Forward propagate through LSTM
-        _, (h_n, c_n) = self.lstm(x, (h_0, c_0))
+        _, hidden = self.lstm(x, hidden)
         
         # h_n: hidden state for each layer, c_n: cell state for each layer
-        return (h_n, c_n)
+        return hidden
     
 class PositionDecoder(nn.Module):
     def __init__(self, hidden_size, num_layers):
@@ -36,11 +37,10 @@ class PositionDecoder(nn.Module):
         # self.dropout = nn.Dropout(p=0.2)
         
     def forward(self, x, hidden):
-         # Forward pass through the LSTM
+        # Forward pass through the LSTM
         output, hidden = self.lstm(x, hidden)
         
         # position regression output
-        # output = self.dropout(output)
         pos_output = self.pos(output)
         
         return pos_output, hidden
@@ -55,12 +55,12 @@ class OSUModelPos(nn.Module):
     def forward(self, input, targets, teacher_forcing_ratio = 0):
         
         # Encode the source sequence
-        pos_hidden = self.pos_encoder(input)
+        enc_hidden = self.pos_encoder(input)
         
         # Initial input for position decoder (batch_size, 1, 2)
         pos_decoder_input = targets[:, 0, :].unsqueeze(1)
         
-        pos_output, pos_hidden = self.pos_decoder(pos_decoder_input, pos_hidden)
+        pos_output, _ = self.pos_decoder(pos_decoder_input, enc_hidden)
         
         return pos_output
     
@@ -92,7 +92,7 @@ class KeypressDecoder(nn.Module):
         # LSTM decoder
         self.lstm = nn.LSTM(num_keys, hidden_size, num_layers, batch_first=True)
         
-        # Classification key press logit output (0, 1, 2) with hidden state from encoder
+        # Classification key press logit output (key1, key2) with hidden state from encoder
         self.key = nn.Linear(hidden_size, num_keys)
         
         self.dropout = nn.Dropout(p=0.5)

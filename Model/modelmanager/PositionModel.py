@@ -5,29 +5,43 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 
 class PositionModel(ModelManager):
-    def __init__(self, name, config):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        encoder = PositionEncoder(config['pos_input_size'], config['pos_hidden_size'], config['pos_num_layers'])
-        decoder = PositionDecoder(config['pos_hidden_size'], config['pos_num_layers'])
-        model = OSUModelPos(encoder, decoder, self.device)
+    def __init__(self, name, config, device, trained_model=None):
+        if trained_model is None:
+            encoder = PositionEncoder(config['pos_input_size'], config['pos_hidden_size'], config['pos_num_layers'])
+            decoder = PositionDecoder(config['pos_hidden_size'], config['pos_num_layers'])
+            self.input_size = config['pos_input_size']
+            self.hidden_size = config['pos_hidden_size']
+            self.num_layers = config['pos_num_layers']
+            self.context_size = config['pos_context_size']
+            self.time_window = config['pos_time_window']
+            self.criterion = torch.nn.L1Loss(reduction='none')
+            
+            self.epsilon_min = config['epsilon_min']
+            self.epsilon_max = config['epsilon_max']
+            self.n = config['epsilon_expo']
+            
+            self.object_loss_weight = config['object_loss_weight']
+            
+            self.type_weight = torch.tensor([
+                config['hit_circle_precision'],
+                config['slider_head_precision'],
+                config['slider_tick_precision'],
+                config['spinner_start_precision'],
+                config['spinner_tick_precision']
+                ], dtype=torch.float32).to(device)
+
+            weights = None
+        else:
+            hyperparameters = trained_model['hyperparameters']
+            encoder = PositionEncoder(hyperparameters['input_size'], hyperparameters['hidden_size'], hyperparameters['num_layers'])
+            decoder = PositionDecoder(hyperparameters['hidden_size'], hyperparameters['num_layers'])
+            weights = trained_model['model_weights']
+            name = trained_model['model_name']
         
-        super().__init__(name, config, model)
+        name = f'[POS]{name}'
+        model = OSUModelPos(encoder, decoder, device)
         
-        self.criterion = torch.nn.L1Loss(reduction='none')
-        
-        self.epsilon_min = config['epsilon_min']
-        self.epsilon_max = config['epsilon_max']
-        self.n = config['epsilon_expo']
-        
-        self.object_loss_weight = config['object_loss_weight']
-        
-        self.type_weight = torch.tensor([
-            config['hit_circle_precision'],
-            config['slider_head_precision'],
-            config['slider_tick_precision'],
-            config['spinner_start_precision'],
-            config['spinner_tick_precision']
-            ], dtype=torch.float32).to(self.device)
+        super().__init__(name, config, model, device, weights)
         
     # Loss calculation of combined losses
     # Replay loss is the loss between player replay data and model prediction
@@ -104,14 +118,16 @@ class PositionModel(ModelManager):
     # Prediction loop
     # Autoregressive predictions happen one at a time, batch size is 1 and this is basically a sequential for loop
     # Could use futher optimization
-    def predict(self, inputs):
+    def predict(self, inputs, progress_callback=None):
+        self.model.eval()
         inputs = [t.pin_memory() for t in inputs]
         predictions = []
+        total_inputs = len(inputs)
         with torch.no_grad():
             # Initializing first cursor position (center)
             prev_pred = torch.tensor([0.5, 0.5], device=self.device).unsqueeze(0).unsqueeze(1)  # Shape (1, 1, 2)
             
-            for input in tqdm(inputs, total=len(inputs), desc="Predicting Position"):
+            for idx, input in tqdm(enumerate(inputs), total=len(inputs), desc="Predicting Position"):
                 input_length = torch.tensor([len(input)], dtype=torch.long)
                 input = input.to(self.device).unsqueeze(0)
                 padded_input = pad_sequence(input, batch_first=True, padding_value=0)              # Shape (1, seq_len, feature_size)
@@ -133,5 +149,11 @@ class PositionModel(ModelManager):
                 prev_pred = output
                 
                 predictions.append(output)
+                
+                if progress_callback and (idx + 1) % 1000 == 0:
+                    progress_callback((idx + 1) / total_inputs, 'Position')
+                    
+        if progress_callback:
+            progress_callback(1.0, 'Position')
                 
         return predictions

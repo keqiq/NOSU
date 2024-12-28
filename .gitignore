@@ -9,7 +9,7 @@ OSUControllerV2.py
 OSUListener.py
 OSUListenerV2.py
 *.pth
-*.json
+
 OSUModelUtils.py
 Model/OSUModelUtils.py
 Model/debug.ipynb

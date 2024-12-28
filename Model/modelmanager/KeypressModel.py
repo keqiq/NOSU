@@ -5,15 +5,28 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 
 class KeypressModel(ModelManager):
-    def __init__(self, name, config):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        encoder = KeypressEncoder(config['key_input_size'], config['key_hidden_size'], config['key_num_layers'])
-        decoder = KeypressDecoder(config['key_hidden_size'], config['key_num_layers'])
-        model = OSUModelKey(encoder, decoder, self.device)
-        super().__init__(name, config, model)
-        
-        self.criterion = torch.nn.CrossEntropyLoss(reduction='none')
-        
+    def __init__(self, name, config, device, trained_model=None):
+        if trained_model is None:
+            encoder = KeypressEncoder(config['key_input_size'], config['key_hidden_size'], config['key_num_layers'])
+            decoder = KeypressDecoder(config['key_hidden_size'], config['key_num_layers'])
+            self.input_size = config['key_input_size']
+            self.hidden_size = config['key_hidden_size']
+            self.num_layers = config['key_num_layers']
+            self.context_size = config['key_context_size']
+            self.time_window = config['key_time_window']
+            self.criterion = torch.nn.CrossEntropyLoss(reduction='none')
+            weights = None
+            
+        else:
+            hyperparameters = trained_model['hyperparameters']
+            encoder = KeypressEncoder(hyperparameters['input_size'], hyperparameters['hidden_size'], hyperparameters['num_layers'])
+            decoder = KeypressDecoder(hyperparameters['hidden_size'], hyperparameters['num_layers'])
+            weights = trained_model['model_weights']
+            name = trained_model['model_name']
+            
+        name = f'[KEY]{name}'
+        model = OSUModelKey(encoder, decoder, device)
+        super().__init__(name, config, model, device, weights)
     
     def _calculate_losses(self, outputs, data):
         # Keypress targets (batch_size, sequence_len - 1, num_keys)
@@ -42,15 +55,17 @@ class KeypressModel(ModelManager):
             f"V Loss Replay: {valid_losses[0]:.4f}"
         )
         
-    def predict(self, inputs):
+    def predict(self, inputs, progress_callback=None):
+        self.model.eval()
         inputs = [t.pin_memory() for t in inputs]
         predictions = []
+        total_inputs = len(inputs)
         with torch.no_grad():
-            # initialize the first keypress
+            # Initialize the first keypress
             # Keypress will be key1 (1.0, 0.0)
             prev_pred = torch.tensor([1.0, 0.0], device=self.device).unsqueeze(0).unsqueeze(1)
             
-            for input in tqdm(inputs, total=len(inputs), desc="Predicting Keypress"):
+            for idx, input in tqdm(enumerate(inputs), total=len(inputs), desc="Predicting Keypress"):
                 input_length = torch.tensor([len(input)], dtype=torch.long)
                 input = input.to(self.device).unsqueeze(0)
                 padded_input = pad_sequence(input, batch_first=True, padding_value=0)
@@ -62,6 +77,12 @@ class KeypressModel(ModelManager):
                 
                 key_index = torch.argmax(output, 2)
                 predictions.append(key_index)
+                
+                if progress_callback and (idx + 1) % 1000 == 0:
+                    progress_callback((idx+1) / total_inputs, 'Keypress')
+                    
+        if progress_callback:
+            progress_callback(1.0, 'Keypress')
                 
         return predictions
         
