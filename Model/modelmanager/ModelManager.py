@@ -10,7 +10,7 @@ class ModelManager():
         self.model = model.to(self.device)
         self.name = name
         if weights is None:
-            self.min_lr = config['early_stopping_learning_rate']
+            self.min_lr = config['es_learning_rate']
             self.max_epoch = config['max_epoch']
             
             self.optimizer = torch.optim.Adam(
@@ -32,7 +32,10 @@ class ModelManager():
                 "hidden_size": self.hidden_size,
                 "num_layers": self.num_layers,
                 "context_size": self.context_size,
-                "time_window": self.time_window
+                "time_window": self.time_window,
+                "linear_buzz_threshold": config['linear_buzz_threshold'],
+                "circle_buzz_threshold": config['circle_buzz_threshold'],
+                "bezier_buzz_threshold": config['bezier_buzz_threshold']
             }
         else:
             self.model.load_state_dict(weights)
@@ -146,10 +149,11 @@ class ModelManager():
     Function to save model name, hyperparameters and weights as .pth file
     """
     def save_model(self, path):
+        prefix = '[POS]' if self.__class__.__name__ == "PositionModel" else '[KEY]'
         torch.save({
             "model_name": self.name,
             "hyperparameters": self.hyperparameters,
             "model_weights": self.model.state_dict()
-        }, f'{path}/{self.name}.pth')
+        }, f'{path}/{prefix}{self.name}.pth')
         
-        print(f"Saved {self.name} to {path}/{self.name}.pth")
+        print(f"Saved {self.name} to {path}/{prefix}{self.name}.pth")

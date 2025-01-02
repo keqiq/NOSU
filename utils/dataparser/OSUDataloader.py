@@ -1,4 +1,6 @@
 import torch
+import numpy as np
+import random
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
 import os
@@ -63,6 +65,7 @@ def key_collate_fn(batch):
 
 class OSUDataloader():
     def __init__(self, data_parser, config, regenerate=False):
+        self.seed = config['seed']
         self.data_parser = data_parser
         self.type = type(data_parser).__name__
         self.t_b_size = config['train_batch_size']
@@ -75,6 +78,11 @@ class OSUDataloader():
             collate_fn = pos_collate_fn
         else:
             collate_fn = key_collate_fn
+            
+        def seed_worker(worker_id):
+            worker_seed = torch.initial_seed() %2**32
+            np.random.seed(worker_seed)
+            random.seed(worker_seed)
             
         if os.path.exists(f'{paths['train']}/train_dataset.pth') and not self.regenerate:
             print("Creating training dataloader...", end="")
@@ -91,7 +99,8 @@ class OSUDataloader():
                                   shuffle=True, 
                                   drop_last=True,
                                   collate_fn=collate_fn,
-                                  pin_memory=True)
+                                  pin_memory=True,
+                                  worker_init_fn=seed_worker)
         
         print("Complete!")
         valid_loaders = []
@@ -111,7 +120,8 @@ class OSUDataloader():
                                       batch_size=self.v_b_size,
                                       shuffle=False,
                                       drop_last=True,
-                                      collate_fn=collate_fn)
+                                      collate_fn=collate_fn,
+                                      worker_init_fn=seed_worker)
             valid_loaders.append(valid_loader)
         print("Complete!")
         return train_loader, valid_loaders

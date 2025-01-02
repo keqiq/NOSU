@@ -111,12 +111,12 @@ def _display_parameters(config, config_name, frame):
                 
             # Parameter label
             label = ctk.CTkLabel(row_frame, text=param, width=150, anchor='e')
-            label.grid(row=row, column=col * 2, padx=5, pady=5, sticky='w')
+            label.grid(row=row, column=col * 2, padx=(0, 5), pady=5, sticky='w')
             
             # Parameter value textbox
             entry = ctk.CTkEntry(row_frame, width=60)
             entry.insert(0, str(value))
-            entry.grid(row=row, column=col*2+1, padx=(0, 10), pady=5, sticky='w')
+            entry.grid(row=row, column=col*2+1, padx=(0, 5), pady=5, sticky='w')
             entries[f'{section}.{param}'] = entry
             
             col += 1
@@ -208,7 +208,7 @@ def build_config_widget(parent, app):
 
     frame_configs = ctk.CTkFrame(parent, fg_color='transparent')
     frame_configs.pack(fill='x', padx=10, pady=10)
-    frame_params = ctk.CTkFrame(parent, fg_color='transparent')
+    frame_params = ctk.CTkScrollableFrame(parent, fg_color='transparent', width=700)
     frame_params.pack(fill='both', expand=True, padx=10, pady=10)
 
     # Default to selecting 'default'

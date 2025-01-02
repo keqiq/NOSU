@@ -1,5 +1,5 @@
 from .Slider import Slider
-from .Linear import Linear
+from .LinearV2 import LinearV2
 import math
 
 """
@@ -7,9 +7,9 @@ Circle slider subclass
 """
 class CircleV2(Slider):
     
-    def __init__(self, slider_object, ms_per_beat, velocity):
+    def __init__(self, slider_object, ms_per_beat, velocity, buzz_thresholds):
         super().__init__(slider_object, ms_per_beat, velocity)
-        
+        self.buzz_threshold = buzz_thresholds['P']
         try:
             self.cx, self.cy, self.r = self.__calculate_circle()
             self.arc_angle, self.is_ccw = self.__determine_arc_direction()
@@ -21,7 +21,7 @@ class CircleV2(Slider):
             if self.repeats > 1: self._calculate_repeats()
         except ValueError:
             # This Value Error is thrown when the circle slider is flat and may be considered linear
-            linear = Linear(slider_object, ms_per_beat, velocity)
+            linear = LinearV2(slider_object, ms_per_beat, velocity, buzz_thresholds)
             self.ticks = linear.get_ticks()
     
     """    

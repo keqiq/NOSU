@@ -16,10 +16,15 @@ This is the super class for PositionData and KeypressData providing some type ag
 The structure of tensors for the position model and keypress model is different
 """
 class DataParser:
-    def __init__(self, set_paths, c_size, t_size, regen=False):
+    def __init__(self, set_paths, config, regen=False):
         self.set_paths = set_paths
-        self.c_size = c_size
-        self.t_size = t_size
+        self.c_size = config[f'{self.subclass}_context_size']
+        self.t_size = config[f'{self.subclass}_time_window']
+        self.buzz_thresholds = {
+            'L' : config['linear_buzz_threshold'],
+            'P' : config['circle_buzz_threshold'],
+            'B' : config['bezier_buzz_threshold']
+        }
         self.regen = regen
         self.W = 512
         self.H = 384
@@ -27,8 +32,7 @@ class DataParser:
     """
     Function to convert .osu map files into numpy 2d array
     """
-    @staticmethod
-    def _parse_map(map_path, hr):
+    def _parse_map(self, map_path, hr):
         with open(map_path, 'r', encoding='utf-8') as file:
             lines = file.read()
         
@@ -55,7 +59,7 @@ class DataParser:
             # Hitobject parsing
             elif header == '[HitObjects]':
                 if content[-1] == '': content.pop(-1)
-                ho = HitObjects(mp, tp, content, hr)
+                ho = HitObjects(mp, tp, content, hr, self.buzz_thresholds)
         
         return ho.get_data()
 

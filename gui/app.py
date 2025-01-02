@@ -12,13 +12,15 @@ from utils.dataparser.KeypressData import KeypressData
 from utils.dataparser.OSUDataloader import OSUDataloader
 from utils.PostProcess import post_process, save_replay
 import torch
+import numpy as np
+import random
 
 # Appearance mode and color theme
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 selected_color = '#7F46FA'
 unselected_color = '#3B3B3B'
-CONFIG_PATH = 'config.json'
+CONFIG_PATH = '_internal/config.json'
 VERSION = 'Beta_1.0'
 
 class App(ctk.CTk):
@@ -31,6 +33,8 @@ class App(ctk.CTk):
         # Loading configuration file from directory root
         with open(CONFIG_PATH, 'r') as f:
             self.config = json.load(f)
+            
+        self._build_directories()
 
         # Check if a song path is specified
         # If not default to osu!'s default install directory
@@ -43,6 +47,8 @@ class App(ctk.CTk):
         
         self.selected_map = None
         self.train_log = None
+        self.pos_model = None
+        self.key_model = None
         self.button_generate_replay = None
         self.button_train_position = None
         self.button_train_keypress = None
@@ -95,6 +101,15 @@ class App(ctk.CTk):
         box.configure(state="disabled")
     
     """
+    Function to set random seeds
+    """
+    @staticmethod
+    def _set_seed(seed):
+        torch.manual_seed(seed)
+        random.seed(seed)
+        np.random.seed(seed)
+    
+    """
     Training function takes the selected configuration and model type
     Will create a thread for data parsing and training to not freeze ui
     """
@@ -102,9 +117,8 @@ class App(ctk.CTk):
         # Update busy state and disable buttons
         self.busy = True
         self.update_buttons()
-        
         self.save_config('name', name)
-        paths = self.load_config()['paths']
+        paths = self.config['paths']
         selected_config = config.get()
         self.write_to_log(self.train_log, f'Training {type} with config {selected_config}')
         updated_config = self.parse_config(self.config['train']['default'], self.config['train'][selected_config])
@@ -112,6 +126,7 @@ class App(ctk.CTk):
         for key, sub_dict in updated_config.items():
             combined_config.update(sub_dict)
         
+        self._set_seed(combined_config['seed'])
         if type == 'position':
             data = PositionData(paths, updated_config['Data'], True)
             model = PositionModel(f'{self.config['name']}', combined_config, self.device)
@@ -119,7 +134,7 @@ class App(ctk.CTk):
             data = KeypressData(paths, updated_config['Data'], True)
             model = KeypressModel(f'{self.config['name']}', combined_config, self.device)
 
-        dataloader = OSUDataloader(data, updated_config['Data'], True)
+        dataloader = OSUDataloader(data, combined_config, True)
         
         thread = threading.Thread(
             target=self._train_thread,
@@ -144,11 +159,13 @@ class App(ctk.CTk):
             self.update_buttons()
     
     """
-    References kept for inference
     Function is called on startup to load model from config['models']
     Also called when choosing a different model
+    References kept for inference
     """
     def load_model(self, model_type):
+        if not os.path.exists(self.config['models'][model_type]):
+            return
         model = torch.load(self.config['models'][model_type])
         if model_type == 'Position':
             self.pos_model = model
@@ -190,11 +207,17 @@ class App(ctk.CTk):
         
         pos_data = PositionData(None, {
             'pos_context_size': self.pos_hyperparams['context_size'],
-            'pos_time_window': self.pos_hyperparams['time_window']
+            'pos_time_window': self.pos_hyperparams['time_window'],
+            'linear_buzz_threshold': self.pos_hyperparams['linear_buzz_threshold'],
+            'circle_buzz_threshold': self.pos_hyperparams['circle_buzz_threshold'],
+            'bezier_buzz_threshold': self.pos_hyperparams['bezier_buzz_threshold']
             })
         key_data = KeypressData(None, {
             'key_context_size': self.key_hyperparams['context_size'],
-            'key_time_window': self.key_hyperparams['time_window']
+            'key_time_window': self.key_hyperparams['time_window'],
+            'linear_buzz_threshold': self.key_hyperparams['linear_buzz_threshold'],
+            'circle_buzz_threshold': self.key_hyperparams['circle_buzz_threshold'],
+            'bezier_buzz_threshold': self.key_hyperparams['bezier_buzz_threshold']
         })
         pos_model = PositionModel(self.pos_name, None, self.device, self.pos_model)
         key_model = KeypressModel(self.key_name, None, self.device, self.key_model)
@@ -222,7 +245,7 @@ class App(ctk.CTk):
         key_pred = key_model.predict(key_input, update_progress)
         
         predictions = post_process(pos_pred, key_pred, pos_time, key_time, key_end_time)
-        save_replay(predictions, 'replay_template.osr', self.selected_map, pos_model.name, key_model.name)
+        save_replay(predictions, '_internal/replay_template.osr', self.selected_map, pos_model.name, key_model.name, self.config['replay_path'])
         
         # Update busy state and enable buttons
         self.busy = False
@@ -235,11 +258,14 @@ class App(ctk.CTk):
     Function to update progress bars
     """
     def _update_progress_bars(self, progress, type):
-        if type == 'Position' or type == 'all':
+        if type == 'Position':
             self.pb_pos.set(progress)
-        elif type == 'Keypress' or type == 'all':
+        elif type == 'Keypress':
             self.pb_key.set(progress)
-        self.update_idletasks()
+        elif type == 'all':
+            self.pb_pos.set(progress)
+            self.pb_key.set(progress)
+        self.update_idletasks()        
     
     def save_config(self, key, config):
         self.config[key] = config
@@ -279,6 +305,16 @@ class App(ctk.CTk):
         else:
             self.button_train_position.configure(state='disabled')
             self.button_train_keypress.configure(state='disabled')
+            
+    def _build_directories(self):
+        if not os.path.exists(self.config['paths']['train']):
+            os.makedirs(self.config['paths']['train'])
+        if not os.path.exists(self.config['paths']['valid']):
+            os.makedirs(self.config['paths']['valid'])
+        if not os.path.exists(self.config['save_path']):
+            os.makedirs(self.config['save_path'])
+        if not os.path.exists(self.config['replay_path']):
+            os.makedirs(self.config['replay_path'])
         
     @contextlib.contextmanager
     def redirect_stdout_to_textbox(self, textbox):

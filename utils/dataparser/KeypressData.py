@@ -8,8 +8,8 @@ KeypressData transforms .osu map files and .osr replay files into tensors used b
 """
 class KeypressData(DataParser):
     def __init__(self, set_paths, config, regen=False):
-        super().__init__(set_paths, config['key_context_size'], config['key_time_window'], regen)
         self.subclass = 'key'
+        super().__init__(set_paths, config, regen)
         
     """
     Function to convert .osr replay files into numpy 2d array

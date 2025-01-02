@@ -9,8 +9,8 @@ PositionData transforms .osu map files and .osr replay files into tensors used b
 class PositionData(DataParser):
     
     def __init__(self, set_paths, config, regen=False):
-        super().__init__(set_paths, config['pos_context_size'], config['pos_time_window'], regen)
         self.subclass = 'pos'
+        super().__init__(set_paths, config, regen)
     
     """
     Converts .osr replay files into numpy 2d array

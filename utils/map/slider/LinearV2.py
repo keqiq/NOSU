@@ -6,8 +6,9 @@ Linear slider subclass
 """
 class LinearV2(Slider):
     
-    def __init__(self, slider_object, ms_per_beat, velocity):
+    def __init__(self, slider_object, ms_per_beat, velocity, buzz_thresholds):
         super().__init__(slider_object, ms_per_beat, velocity)
+        self.buzz_threshold = buzz_thresholds['L']
         _, self.unscaled_length = self._calculate_cumulative_lengths()
         self.scaling_factor = self._calculate_scaling_factor()
         self._scale_control_points()

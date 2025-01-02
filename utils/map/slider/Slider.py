@@ -91,11 +91,11 @@ class Slider:
             self.control[i] = [x0 + dx, y0 + dy]
     
     """
-    Called after all tick interpolation and appends a buzz slider indicator
+    Called after all tick interpolation and appends a short/buzz slider indicator
     """
     def _create_ticks_matrix(self, ticks):
         num_rows = len(ticks)
-        is_buzz = 1 if self.max_distance < 90 else 0
+        is_buzz = 1 if self.max_distance < self.buzz_threshold else 0
         col_indicator = np.full((num_rows, 1), is_buzz)
         self.ticks = np.hstack((np.array(ticks), col_indicator))
         

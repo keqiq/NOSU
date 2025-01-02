@@ -35,8 +35,9 @@ def _display_hyperparams(frame, hps):
     
     # Create a label for each hyperparameter and it's value
     for param, value in hps.items():
-        hp_label = ctk.CTkLabel(frame, text=f'{param}: {value}')
-        hp_label.pack(side='left', padx=10, pady=2)
+        if 'buzz' not in param.lower():
+            hp_label = ctk.CTkLabel(frame, text=f'{param}: {value}')
+            hp_label.pack(side='left', padx=10, pady=2)
 
 """
 Inference tab building function
@@ -103,9 +104,11 @@ def build_inference_tab(parent, app):
     frame_key_hps.pack(fill='x', padx=10, pady=5)
     
     app.load_model("Position")
-    _display_hyperparams(frame_pos_hps, app.pos_hyperparams)
+    if app.pos_model:
+        _display_hyperparams(frame_pos_hps, app.pos_hyperparams)
     app.load_model("Keypress")
-    _display_hyperparams(frame_key_hps, app.key_hyperparams)
+    if app.key_model:
+        _display_hyperparams(frame_key_hps, app.key_hyperparams)
     
     # Progress bars
     frame_progress_bars = ctk.CTkFrame(content_frame)

@@ -1,16 +1,15 @@
 __pycache__/
-/Data/
-/Model/key_dataset/
-/Model/pos_dataset/
-/old/
+Data/train/*
+Data/train_pos/*
+Data/train_key/*
+Data/valid/*
+Data/valid_pos/*
+Data/valid_key/*
+Data/unseen/*
+/__hidden/
 /osu/
-OSUController.py
-OSUControllerV2.py
-OSUListener.py
-OSUListenerV2.py
-*.pth
 
-OSUModelUtils.py
-Model/OSUModelUtils.py
 Model/debug.ipynb
-/tosu-windows-v4.0.1
+/Replays/
+/dist/
+/build/

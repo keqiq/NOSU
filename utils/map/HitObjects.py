@@ -8,11 +8,12 @@ HitObject class turns the entries under [HitObjects] in .osu files into 2d np ar
 """
 class HitObjects():
     
-    def __init__(self, map_params, timing_points, hit_objects, hard_rock):
+    def __init__(self, map_params, timing_points, hit_objects, hard_rock, buzz_thresholds):
         
         self.base_multiplier = map_params.get_slider_multiplier()
         self.timing_points = timing_points
         self.hard_rock = hard_rock
+        self.buzz_thresholds = buzz_thresholds
         
         # Used by visualizer
         self.hit_circles = []
@@ -173,13 +174,13 @@ class HitObjects():
             'P' : CircleV2,
             'B' : BezierV2
         }
-        if slider['time'] == 331350:
+        if slider['time'] == 28427:
             pass
         ms_per_beat, sv_multiplier = self.timing_points.get_current_params(slider['time'])
         velocity = self.base_multiplier * 100 * sv_multiplier
         
         slider_class = slider_shapes[slider['slider_data']['shape']]
-        slider_object = slider_class(slider, ms_per_beat, velocity)
+        slider_object = slider_class(slider, ms_per_beat, velocity, self.buzz_thresholds)
         ticks = slider_object.get_ticks()
         
         if self.hard_rock:

@@ -5,7 +5,8 @@ The bezier segment(s) are approximated with polyline(s)
 CURRENTLY UNSCALED BC IT'S NOT WORKING PROPERLY
 """
 class BezierV2(Slider):
-    def __init__(self, slider_object, ms_per_beat, velocity):
+    def __init__(self, slider_object, ms_per_beat, velocity, buzz_thresholds):
+        self.buzz_threshold = buzz_thresholds['B']
         super().__init__(slider_object, ms_per_beat, velocity)
         self.segments = self._get_bezier_segments()
         self.control = self._flatten_all_segments()

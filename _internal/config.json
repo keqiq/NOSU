@@ -1,10 +1,10 @@
 {
     "name": "NOSU",
     "paths": {
-        "train": "Data/train_pos",
-        "valid": "Data/valid_pos"
+        "train": "Data/train",
+        "valid": "Data/valid"
     },
-    "save_path": "Model/trained_models",
+    "save_path": "Model",
     "train": {
         "default": {
             "Data": {
@@ -13,15 +13,18 @@
                 "key_context_size": 10,
                 "key_time_window": 500,
                 "train_batch_size": 1024,
-                "valid_batch_size": 64
+                "valid_batch_size": 64,
+                "linear_buzz_threshold": 90,
+                "circle_buzz_threshold": 90,
+                "bezier_buzz_threshold": 90
             },
             "Model": {
-                "key_input_size": 4,
-                "key_hidden_size": 16,
-                "key_num_layers": 2,
                 "pos_input_size": 13,
                 "pos_hidden_size": 32,
-                "pos_num_layers": 2
+                "pos_num_layers": 2,
+                "key_input_size": 4,
+                "key_hidden_size": 16,
+                "key_num_layers": 2
             },
             "Loss": {
                 "epsilon_min": 0.075,
@@ -30,6 +33,7 @@
                 "hit_circle_precision": 10,
                 "slider_head_precision": 10,
                 "slider_tick_precision": 5,
+                "buzz_epsilon_multi": 2,
                 "spinner_start_precision": 0,
                 "spinner_tick_precision": 0,
                 "object_loss_weight": 10
@@ -39,15 +43,16 @@
                 "weight_decay": 1e-05,
                 "patience": 15,
                 "max_epoch": 200,
-                "early_stopping_learning_rate": 1e-06
+                "es_learning_rate": 1e-06,
+                "seed": 42
             }
         },
-        "custom": {
-        }
+        "custom": {}
     },
     "models": {
-        "Position": "Model/trained_models/[POS]NOSU_1.0.pth",
-        "Keypress": "Model/trained_models/[KEY]NOSU_1.0.pth"
+        "Position": "Model/[POS]NOSU_1.0.pth",
+        "Keypress": "Model/[KEY]NOSU_1.0.pth"
     },
-    "song_path": null
+    "song_path": null,
+    "replay_path": "Replays"
 }

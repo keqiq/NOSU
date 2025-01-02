@@ -5,7 +5,7 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pack_padded_sequence
 
 """
-Position model subclass provides loss function and predict function
+PositionModel subclass provides loss function and predict function
 """
 class PositionModel(ModelManager):
     def __init__(self, name, config, device, trained_model=None):
@@ -21,7 +21,7 @@ class PositionModel(ModelManager):
             
             self.epsilon_min = config['epsilon_min']
             self.epsilon_max = config['epsilon_max']
-            self.n = config['epsilon_expo']
+            self.epsilon_expo = config['epsilon_expo']
             
             self.object_loss_weight = config['object_loss_weight']
             
@@ -32,6 +32,8 @@ class PositionModel(ModelManager):
                 config['spinner_start_precision'],
                 config['spinner_tick_precision']
                 ], dtype=torch.float32).to(device)
+            
+            self.buzz_epsilon_mulit = config['buzz_epsilon_multi']
 
             weights = None
         else:
@@ -41,7 +43,6 @@ class PositionModel(ModelManager):
             weights = trained_model['model_weights']
             name = trained_model['model_name']
         
-        name = f'[POS]{name}'
         model = OSUModelPos(encoder, decoder)
         
         super().__init__(name, config, model, device, weights)
@@ -86,7 +87,7 @@ class PositionModel(ModelManager):
         # Valid Object types (hit_circle, slider_head, slider_tick) where object loss is applied
         # Invalid object types (spinner_start, spinner_ticks) where object loss is ignored
         object_type = immediate_object[:, 2:7]          # Shape (batch_size, 5)
-        # A multiplier is applied to emphasize certain object types
+        # A multiplier is applied to epsilon to emphasize certain object types
         object_type_multiplier = torch.sum(object_type * self.type_weight, dim=1)
         
         # Time weights for object loss
@@ -98,10 +99,10 @@ class PositionModel(ModelManager):
         Epsilon is the acceptable margin of error where no object loss is applied
         Epsilon decreases when time delta is small
         Epsilon is decreased for high type weights
-        Epsilon is scaled up for buzz sliders
+        Epsilon is scaled up for buzz/short sliders
         """
-        epsilon = self.epsilon_min + (self.epsilon_max - self.epsilon_min) * torch.pow(time_values, self.n)
-        epsilon = (epsilon + (epsilon * slider_mask * 2)) * (10 / object_type_multiplier)
+        epsilon = self.epsilon_min + (self.epsilon_max - self.epsilon_min) * torch.pow(time_values, self.epsilon_expo)
+        epsilon = (epsilon + (epsilon * slider_mask * self.buzz_epsilon_mulit)) * (10 / object_type_multiplier)
         
         # Adjusted object loss masked by epsilon
         adjusted_object_loss = torch.clamp(object_loss - epsilon, min=0)

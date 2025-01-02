@@ -6,18 +6,22 @@
         "key_time_window": 500,
         "train_batch_size": 1024,
         "valid_batch_size": 64,
-        "key_input_size": 4,
-        "key_hidden_size": 16,
-        "key_num_layers": 2,
+        "linear_buzz_threshold": 90,
+        "circle_buzz_threshold": 90,
+        "bezier_buzz_threshold": 90,
         "pos_input_size": 13,
         "pos_hidden_size": 32,
         "pos_num_layers": 2,
+        "key_input_size": 4,
+        "key_hidden_size": 16,
+        "key_num_layers": 2,
         "epsilon_min": 0.075,
         "epsilon_max": 1.0,
         "epsilon_expo": 1.5,
         "hit_circle_precision": 10,
         "slider_head_precision": 10,
         "slider_tick_precision": 5,
+        "buzz_epsilon_multi": 2,
         "spinner_start_precision": 0,
         "spinner_tick_precision": 0,
         "object_loss_weight": 10,
@@ -25,9 +29,7 @@
         "weight_decay": 1e-5,
         "patience": 15,
         "max_epoch": 200,
-        "early_stopping_learning_rate": 1e-6
-    },
-    "custom": {
-
+        "es_learning_rate": 1e-6,
+        "seed": 42
     }
 }

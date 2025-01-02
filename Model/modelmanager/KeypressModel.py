@@ -5,7 +5,7 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 
 """
-Keypress model subclass provides loss function and predict function
+KeypressModel subclass provides loss function and predict function
 """
 class KeypressModel(ModelManager):
     def __init__(self, name, config, device, trained_model=None):
@@ -27,7 +27,6 @@ class KeypressModel(ModelManager):
             weights = trained_model['model_weights']
             name = trained_model['model_name']
             
-        name = f'[KEY]{name}'
         model = OSUModelKey(encoder, decoder)
         super().__init__(name, config, model, device, weights)
     

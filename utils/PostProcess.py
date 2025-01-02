@@ -76,20 +76,29 @@ def _merge_pos_key(positions_matrix, keypresses_matrix):
     times_array = positions_matrix[:, 0]
     update_indices = []
     
-    # Function to find the index of the time in positions_matrix closest to target_time
+    """
+    Modified nearest-index function that prioritizes the earlier position
+    if the distance to prev_time == distance to next_time (or is smaller).
+    """
     def find_nearest_index(times_array, target_time):
         idx = np.searchsorted(times_array, target_time)
+        
+        # Edge cases where target_time is before all times or after all times
         if idx == 0:
             return 0
         elif idx == len(times_array):
             return len(times_array) - 1
+        
+        # Compare distances to the previous and next times
+        prev_time = times_array[idx - 1]
+        next_time = times_array[idx]
+        
+        # If the difference to prev_time is <= difference to next_time, return idx-1
+        # This line ensures that if the differences are equal, we still favor the earlier index.
+        if abs(prev_time - target_time) <= abs(next_time - target_time):
+            return idx - 1
         else:
-            prev_time = times_array[idx - 1]
-            next_time = times_array[idx]
-            if abs(prev_time - target_time) < abs(next_time - target_time):
-                return idx - 1
-            else:
-                return idx
+            return idx
     
     # Iterate over each keypress event
     for keypress in keypresses_matrix:
@@ -188,7 +197,7 @@ def _get_beatmap_name_hash(map_path, max_song_len=30, max_diff_len=30):
 """
 Function to save the result from post_process into .osr format
 """
-def save_replay(replay_predictions, replay_path, map_path, pos_name, key_name):
+def save_replay(replay_predictions, replay_path, map_path, pos_name, key_name, save_path):
     replay = Replay.from_path(replay_path)
     map_name, map_hash = _get_beatmap_name_hash(map_path)
 
@@ -210,7 +219,6 @@ def save_replay(replay_predictions, replay_path, map_path, pos_name, key_name):
 
     replay.replay_data = markers + replay_data
     
-    pos_name, key_name = pos_name.split(']')[1], key_name.split(']')[1]
     if pos_name == key_name:
         replay.username = pos_name
     else:
@@ -218,4 +226,5 @@ def save_replay(replay_predictions, replay_path, map_path, pos_name, key_name):
     replay.beatmap_hash = map_hash
     replay.timestamp = datetime.now()
 
-    replay.write_path(f"./{replay.username}-{map_name}.osr")
+    replay.write_path(f"{save_path}/{replay.username}-{map_name}.osr")
+    print(f'Saved to {save_path}/{replay.username}-{map_name}.osr')
