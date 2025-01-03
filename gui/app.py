@@ -14,6 +14,7 @@ from utils.PostProcess import post_process, save_replay
 import torch
 import numpy as np
 import random
+import multiprocessing
 
 # Appearance mode and color theme
 ctk.set_appearance_mode("System")
@@ -21,7 +22,7 @@ ctk.set_default_color_theme("blue")
 selected_color = '#7F46FA'
 unselected_color = '#3B3B3B'
 CONFIG_PATH = '_internal/config.json'
-VERSION = 'Beta_1.0'
+VERSION = 'v1.0.0 - beta'
 
 class App(ctk.CTk):
     def __init__(self):
@@ -138,7 +139,8 @@ class App(ctk.CTk):
         
         thread = threading.Thread(
             target=self._train_thread,
-            args=(paths, dataloader, model)
+            args=(paths, dataloader, model),
+            daemon=True
         )
         
         thread.start()
@@ -334,7 +336,8 @@ class App(ctk.CTk):
         finally:
             # Restore the original stdout
             sys.stdout = old_stdout
-            
+    
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     app = App()
     app.mainloop()

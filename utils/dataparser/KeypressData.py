@@ -52,6 +52,10 @@ class KeypressData(DataParser):
                 elif prev_key == 10.0:
                     # Replace with key1
                     keypresses[i] = 1.0
+                
+                # No previous keycode, choose 1.0
+                else:
+                    keypresses[i] = 1.0
             
             else:
                 # Update prev_key if curr_key is not 11.0 and not 0.0
@@ -95,6 +99,8 @@ class KeypressData(DataParser):
          
     """
     Function to generate sequences given a set containing X, y(optional) and path
+    Input tensor structure is [hit_circle, slider_head, spinner, time_delta]
+    Target tensor structure is [key1, key2]
     """
     def generate_sequences(self, set):
         df_X, df_y, path = set
@@ -159,56 +165,59 @@ class KeypressData(DataParser):
                     active_objs = feats_X[start_idx_X : end_idx_X]
                     active_times = times_X[start_idx_X : end_idx_X]
                 
-                # Calculating the time delta between t and object time then normalizing it
-                active_time_delta = (active_times - t) / self.t_size
+                # Check if there needs to be keypress at current t
+                min_delta_time = active_times.min() - t
+                if min_delta_time == 0:
+                    # Calculating the time delta between t and object time then normalizing it
+                    active_time_delta = (active_times - t) / self.t_size
+                    
+                    # Stacking all object features
+                    active_vector = np.hstack((active_objs, active_time_delta.reshape(-1, 1))).astype(np.float32)
+                    
+                    # Getting target sequences as part of training data
+                    if df_y is not None:
+                        
+                        # Setting pointers to contain targets within time window ((t - a) --- (t_last + b))
+                        # constant a and b are used to widen the time window as player inputs can be early or delayed
+                        while start_idx_y < num_targets and times_y[start_idx_y] < t - (1000/60): # a = 16.6 or 1 frame
+                            start_idx_y += 1
+                        
+                        while end_idx_X < num_targets and times_y[end_idx_y] <= active_times.max() + (1000/60)*2: # b = 33.3 or 2 frames
+                            end_idx_y += 1
+                        
+                        # Unsure if this is needed
+                        if start_idx_y == end_idx_y:
+                            start_idx_y -= 1
+                        
+                        keys = targets_y[start_idx_y : end_idx_y].astype(np.float32)
+                        filtered_ohe_keys= self._filter_ohe_keys(keys)
+                        num_keys = len(filtered_ohe_keys)
+                        
+                        """
+                        _filter_ohe_keys should return a sequence with the same size as active_obj in most cases
+                        Due to game mechanics and human delays there may be exceptions
+                        These conditionals will check if exceptions occur
+                        If for some reason there is no input, skip current t as it is invalid
+                        """
+                        if num_keys == 0:
+                            continue
+                        if num_keys < num_active:
+                            # Usually caused by hitcircle transition to spinner, which does not require additional input
+                            if active_objs.iloc[-1, 2] != 1:
+                                print(f'Missing - objects: {num_active} keypresses: {num_keys}')
+                        
+                        elif num_keys > num_active:
+                            # Usually caused by a delayed input
+                            # In this case remove the first input which was part of previous object
+                            filtered_ohe_keys = filtered_ohe_keys[1: 1 + num_active]
+                            if len(filtered_ohe_keys) != num_active:
+                                print(f'Extra - objects: {num_active} keypresses: {len(filtered_ohe_keys)}')
+                                
+                        # Convert the target vector into tensor and append sequence to container
+                        target_sequences.append(torch.tensor(filtered_ohe_keys, dtype=torch.float32))
                 
-                # Stacking all object features
-                active_vector = np.hstack((active_objs, active_time_delta.reshape(-1, 1))).astype(np.float32)
-                
-                # Getting target sequences as part of training data
-                if df_y is not None:
-                    
-                    # Setting pointers to contain targets within time window ((t - a) --- (t_last + b))
-                    # constant a and b are used to widen the time window as player inputs can be early or delayed
-                    while start_idx_y < num_targets and times_y[start_idx_y] < t - (1000/60): # a = 16.6 or 1 frame
-                        start_idx_y += 1
-                    
-                    while end_idx_X < num_targets and times_y[end_idx_y] <= active_times.max() + (1000/60)*2: # b = 33.3 or 2 frames
-                        end_idx_y += 1
-                    
-                    # Unsure if this is needed
-                    if start_idx_y == end_idx_y:
-                        start_idx_y -= 1
-                    
-                    keys = targets_y[start_idx_y : end_idx_y].astype(np.float32)
-                    filtered_ohe_keys= self._filter_ohe_keys(keys)
-                    num_keys = len(filtered_ohe_keys)
-                    
-                    """
-                    _filter_ohe_keys should return a sequence with the same size as active_obj in most cases
-                    Due to game mechanics and human delays there may be exceptions
-                    These conditionals will check if exceptions occur
-                    If for some reason there is no input, skip current t as it is invalid
-                    """
-                    if num_keys == 0:
-                        continue
-                    if num_keys < num_active:
-                        # Usually caused by hitcircle transition to spinner, which does not require additional input
-                        if active_objs.iloc[-1, 2] != 1:
-                            print(f'Missing - objects: {num_active} keypresses: {num_keys}')
-                    
-                    elif num_keys > num_active:
-                        # Usually caused by a delayed input
-                        # In this case remove the first input which was part of previous object
-                        filtered_ohe_keys = filtered_ohe_keys[1: 1 + num_active]
-                        if len(filtered_ohe_keys) != num_active:
-                            print(f'Extra - objects: {num_active} keypresses: {len(filtered_ohe_keys)}')
-                            
-                    # Convert the target vector into tensor and append sequence to container
-                    target_sequences.append(torch.tensor(filtered_ohe_keys, dtype=torch.float32))
-            
-                # Convert the input vector into tensor and append sequence to container
-                input_sequences.append(torch.tensor(active_vector, dtype=torch.float32))
+                    # Convert the input vector into tensor and append sequence to container
+                    input_sequences.append(torch.tensor(active_vector, dtype=torch.float32))
                 
         # When creating training data, ProcessPoolExecutor is used for generating sequences in parallel
         # Pickling the return data is avoided by saving the data to disk then fetching it   

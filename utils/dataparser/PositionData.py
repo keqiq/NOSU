@@ -61,6 +61,8 @@ class PositionData(DataParser):
     
     """
     Function to generate sequences given a set containing X, y(optional) and path
+    Input tensor structure is [x, y, hit_circle, slider_head, slider_tick, spinner, spinner_tick, buzz, delta_time, x_diff, y_diff]
+    Target tensor structure is [x, y]
     """
     def generate_sequences(self, set):
         df_X, df_y, path = set
