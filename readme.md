@@ -25,16 +25,6 @@
 [![project_license][license-shield]][license-url]
 
 
-
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-  <a href="https://github.com/keqiq/NOSU">
-    <img src="preview.gif" alt="Logo" width="800" height="450">
-    </br>
-    <a href="">NOSU in white, human in purple on unseen data (See full video)</a>
-  </a>
-
 <h3 align="center">NOSU (Neurosu!)</h3>
 
   <p align="center">
@@ -43,8 +33,18 @@
     ·
     <a href="https://github.com/keqiq/NOSU/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
-</div>
 
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://youtu.be/_xMEwteSTR0">
+    <img src="preview.gif" alt="Logo" width="800" height="450">
+  </a>
+  
+  [NOSU in white, human in purple on unseen data (See full video)](https://youtu.be/_xMEwteSTR0)
+
+
+</div>
 
 
 <!-- TABLE OF CONTENTS -->
@@ -101,7 +101,7 @@ The packaged app requires CUDA 12.4 and falls back to CPU if no compatible devic
 
 For Windows that means your device must support NVIDIA driver version 527.41 or above to get GPU acceleration.
 
-### Installation (For working with source files)
+### Installation
 
 1. Clone the repo
    ```sh
